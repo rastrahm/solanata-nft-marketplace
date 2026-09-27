@@ -1,12 +1,9 @@
-import * as anchor from "@coral-xyz/anchor";
-import { Program } from "@coral-xyz/anchor";
 import { getAccount, getMint } from "@solana/spl-token";
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import { expect } from "chai";
 import { readFileSync } from "fs";
 import { resolve } from "path";
 
-import { Marketplace } from "../target/types/marketplace";
 import { airdropSol } from "./helpers/airdrop";
 import { createTestNft, createTestToken } from "./helpers/nft";
 import {
@@ -15,6 +12,7 @@ import {
   findTreasuryPda,
   findVaultAddress,
 } from "./helpers/pda";
+import { getTestContext } from "./helpers/provider";
 
 /**
  * @description Lee la clave pública del keypair con el que `anchor deploy` despliega el programa.
@@ -31,10 +29,7 @@ function readDeployKeypairPubkey(): PublicKey {
 }
 
 describe("00 · Infraestructura", () => {
-  const provider = anchor.AnchorProvider.env();
-  anchor.setProvider(provider);
-  const program = anchor.workspace.marketplace as Program<Marketplace>;
-  const connection = provider.connection;
+  const { program, connection } = getTestContext();
 
   describe("programa desplegado", () => {
     it("el programId del workspace coincide con declare_id! (IDL)", () => {

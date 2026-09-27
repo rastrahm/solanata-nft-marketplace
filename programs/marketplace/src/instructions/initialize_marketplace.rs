@@ -47,7 +47,7 @@ pub struct InitializeMarketplace<'info> {
 /// @return `Ok(())` si el marketplace queda creado. Errores: `InvalidFeeBps`,
 ///         `ConstraintSeeds` si alguna PDA no coincide, `AccountNotSigner` si el admin no firma,
 ///         `MathOverflow` en el cálculo del fondeo.
-pub fn handler(ctx: Context<InitializeMarketplace>, fee_bps: u16) -> Result<()> {
+pub(crate) fn handler(ctx: Context<InitializeMarketplace>, fee_bps: u16) -> Result<()> {
     ctx.accounts.marketplace.set_inner(Marketplace {
         admin: ctx.accounts.admin.key(),
         fee_bps,
