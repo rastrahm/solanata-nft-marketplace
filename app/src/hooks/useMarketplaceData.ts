@@ -6,8 +6,14 @@ import { PublicKey } from "@solana/web3.js";
 import { useAsyncData, type AsyncData } from "@/hooks/useAsyncData";
 import { useMarketplaceProgram } from "@/hooks/useMarketplaceProgram";
 import { appConfig } from "@/lib/config";
-import { fetchListing, fetchListings, fetchMarketplace, fetchWalletNfts } from "@/lib/listings";
-import type { ListingView, MarketplaceView, WalletNft } from "@/lib/types";
+import {
+  fetchListing,
+  fetchListings,
+  fetchMarketplace,
+  fetchTreasury,
+  fetchWalletNfts,
+} from "@/lib/listings";
+import type { ListingView, MarketplaceView, TreasuryView, WalletNft } from "@/lib/types";
 
 /** PDA del marketplace configurado (`null` si falta `NEXT_PUBLIC_MARKETPLACE_ADMIN`). */
 const marketplace = appConfig.marketplace;
@@ -20,6 +26,19 @@ export function useMarketplace(): AsyncData<MarketplaceView | null> {
   const program = useMarketplaceProgram();
   return useAsyncData(marketplace && `marketplace:${marketplace.toBase58()}`, () =>
     marketplace ? fetchMarketplace(program, marketplace) : Promise.resolve(null),
+  );
+}
+
+/**
+ * @description Saldo de la tesorería del marketplace configurado.
+ * @returns {AsyncData<TreasuryView | null>} `null` si no hay marketplace configurado.
+ */
+export function useTreasury(): AsyncData<TreasuryView | null> {
+  const program = useMarketplaceProgram();
+  return useAsyncData(marketplace && `treasury:${marketplace.toBase58()}`, () =>
+    marketplace
+      ? fetchTreasury(program.provider.connection, program.programId, marketplace)
+      : Promise.resolve(null),
   );
 }
 

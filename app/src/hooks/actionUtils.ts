@@ -35,3 +35,14 @@ export function requireWallet(publicKey: PublicKey | null): PublicKey {
   if (!publicKey) throw new Error("Wallet no conectada");
   return publicKey;
 }
+
+/**
+ * @description Devuelve el PDA del marketplace configurado.
+ * @param {PublicKey | null} marketplace - `appConfig.marketplace`.
+ * @returns {PublicKey} El PDA.
+ * @throws {Error} Si falta `NEXT_PUBLIC_MARKETPLACE_ADMIN`.
+ */
+export function requireMarketplace(marketplace: PublicKey | null): PublicKey {
+  if (!marketplace) throw new Error("Marketplace no configurado (NEXT_PUBLIC_MARKETPLACE_ADMIN).");
+  return marketplace;
+}

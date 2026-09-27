@@ -41,6 +41,26 @@ export interface PurchaseNftParams {
   creators: PublicKey[];
 }
 
+/** Parámetros de `update_fee`. */
+export interface UpdateFeeParams {
+  /** Admin del marketplace (firmante). */
+  admin: PublicKey;
+  /** PDA del marketplace. */
+  marketplace: PublicKey;
+  /** Nueva comisión en BPS (0 – `MAX_FEE_BPS`). */
+  newFeeBps: number;
+}
+
+/** Parámetros de `withdraw_treasury`. */
+export interface WithdrawTreasuryParams {
+  /** Admin del marketplace (firmante y destino de los fondos). */
+  admin: PublicKey;
+  /** PDA del marketplace. */
+  marketplace: PublicKey;
+  /** Monto a retirar en lamports (> 0 y ≤ saldo retirable). */
+  amountLamports: bigint;
+}
+
 /** Cuentas de `list_nft` / `delist_nft` en el orden del IDL. */
 interface SellerAccounts {
   seller: PublicKey;
@@ -140,5 +160,43 @@ export function buildPurchaseNftIx(
     .remainingAccounts(
       params.creators.map((pubkey) => ({ pubkey, isSigner: false, isWritable: true })),
     )
+    .instruction();
+}
+
+/**
+ * @description Instrucción `update_fee`: cambia la comisión del marketplace (solo el admin).
+ * @param {MarketplaceProgram} program - Cliente del programa.
+ * @param {UpdateFeeParams} params - Admin, marketplace y nueva comisión.
+ * @returns {Promise<TransactionInstruction>} Instrucción sin firmar.
+ */
+export function buildUpdateFeeIx(
+  program: MarketplaceProgram,
+  params: UpdateFeeParams,
+): Promise<TransactionInstruction> {
+  return program.methods
+    .updateFee(params.newFeeBps)
+    .accountsStrict({ admin: params.admin, marketplace: params.marketplace })
+    .instruction();
+}
+
+/**
+ * @description Instrucción `withdraw_treasury`: transfiere lamports de la tesorería PDA al admin.
+ * @param {MarketplaceProgram} program - Cliente del programa.
+ * @param {WithdrawTreasuryParams} params - Admin, marketplace y monto.
+ * @returns {Promise<TransactionInstruction>} Instrucción sin firmar.
+ */
+export function buildWithdrawTreasuryIx(
+  program: MarketplaceProgram,
+  params: WithdrawTreasuryParams,
+): Promise<TransactionInstruction> {
+  const { admin, marketplace } = params;
+  return program.methods
+    .withdrawTreasury(new BN(params.amountLamports.toString()))
+    .accountsStrict({
+      admin,
+      marketplace,
+      treasury: findTreasuryPda(program.programId, marketplace),
+      systemProgram: SystemProgram.programId,
+    })
     .instruction();
 }

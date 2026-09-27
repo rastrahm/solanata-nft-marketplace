@@ -25,7 +25,7 @@ export interface AppError {
 }
 
 /** Conceptos del marketplace que tienen un tooltip de ayuda. */
-export type HelpConcept = "BPS" | "PDA_ESCROW" | "RENT" | "ROYALTIES";
+export type HelpConcept = "BPS" | "PDA_ESCROW" | "RENT" | "ROYALTIES" | "TREASURY";
 
 /** Creador de un NFT con su parte de las royalties (las partes suman 100). */
 export interface RoyaltyCreator {
@@ -77,6 +77,16 @@ export interface WalletNft {
   tokenProgram: string;
   /** Datos visibles del NFT. */
   nft: NftDisplay;
+}
+
+/** Saldo de la tesorería del marketplace. */
+export interface TreasuryView {
+  /** PDA de la tesorería. */
+  address: string;
+  /** Saldo total en lamports. */
+  balanceLamports: bigint;
+  /** Lo que puede retirar el admin (saldo − renta mínima). */
+  withdrawableLamports: bigint;
 }
 
 /** Configuración on-chain del marketplace. */

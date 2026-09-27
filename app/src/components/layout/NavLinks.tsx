@@ -1,23 +1,33 @@
 "use client";
 
+import { useWallet } from "@solana/wallet-adapter-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactElement } from "react";
+
+import { useMarketplace } from "@/hooks/useMarketplaceData";
 
 const LINKS: readonly { href: string; label: string }[] = [
   { href: "/", label: "Explorar" },
   { href: "/sell", label: "Vender" },
 ];
 
+const ADMIN_LINK = { href: "/admin", label: "Admin" } as const;
+
 /**
- * @description Enlaces principales con `aria-current="page"` en la ruta activa.
+ * @description Enlaces principales con `aria-current="page"` en la ruta activa; "Admin" solo aparece
+ * si la wallet conectada es el admin del marketplace.
  * @returns {JSX.Element} Lista de enlaces de navegación.
  */
 export function NavLinks(): ReactElement {
   const pathname = usePathname();
+  const { publicKey } = useWallet();
+  const marketplace = useMarketplace();
+  const isAdmin = !!publicKey && publicKey.toBase58() === marketplace.data?.admin;
+  const links = isAdmin ? [...LINKS, ADMIN_LINK] : LINKS;
   return (
     <ul className="flex items-center gap-1 text-sm font-medium">
-      {LINKS.map(({ href, label }) => (
+      {links.map(({ href, label }) => (
         <li key={href}>
           <Link
             href={href}

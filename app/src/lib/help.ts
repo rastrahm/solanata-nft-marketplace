@@ -32,4 +32,9 @@ export const HELP_TEXTS: Readonly<Record<HelpConcept, HelpEntry>> = {
     summary: "Los creadores cobran su parte en cada reventa.",
     text: "Porcentaje del precio que cobran los creadores del NFT en cada reventa, según su metadata. Se descuenta del monto que recibe el vendedor.",
   },
+  TREASURY: {
+    title: "Tesorería (PDA)",
+    summary: "Cuenta del programa donde se acumulan las comisiones.",
+    text: "Las comisiones se acumulan en una cuenta PDA del programa. Solo el admin puede retirarlas, y siempre queda la renta mínima de una cuenta vacía (~0,00089 SOL) para que la cuenta siga existiendo.",
+  },
 };

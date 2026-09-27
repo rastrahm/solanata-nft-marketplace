@@ -304,9 +304,40 @@ classDiagram
         +name: string
         +size: number
     }
+    class AdminView {
+        <<client>>
+        sin wallet / sin permisos / panel
+    }
     class AdminPanel {
-        +feeBps: number
-        +treasuryLamports: bigint
+        <<client>>
+        +marketplace: MarketplaceView
+        +onFeeUpdated() void
+    }
+    class TreasuryStats {
+        +marketplace: MarketplaceView
+        +treasury: TreasuryView
+    }
+    class FeeForm {
+        +currentFeeBps: number
+        +onSubmit(feeBps: number) void
+    }
+    class WithdrawForm {
+        +withdrawableLamports: bigint
+        +onSubmit(lamports: bigint) void
+    }
+    class AdminFormShell {
+        +form: ConfirmedForm~T~
+        +confirmMessage(value: T) ReactNode
+    }
+    class ConfirmDialog {
+        +message: ReactNode
+        +onConfirm() void
+        +onCancel() void
+    }
+    class FormField {
+        +label: string
+        +value: string
+        +error: string
     }
 
     class Tooltip {
@@ -343,6 +374,7 @@ classDiagram
         +useListings() AsyncData~ListingView[]~
         +useListing(mint) AsyncData~ListingView~
         +useWalletNfts() AsyncData~WalletNft[]~
+        +useTreasury() AsyncData~TreasuryView~
     }
     class useTransaction {
         <<hook>>
@@ -369,6 +401,8 @@ classDiagram
         +buildListNftIx(program, params) Promise
         +buildDelistNftIx(program, params) Promise
         +buildPurchaseNftIx(program, params) Promise
+        +buildUpdateFeeIx(program, params) Promise
+        +buildWithdrawTreasuryIx(program, params) Promise
     }
     class listings {
         <<lib>>
@@ -376,6 +410,7 @@ classDiagram
         +fetchListings(program, marketplace) Promise
         +fetchListing(program, marketplace, mint) Promise
         +fetchWalletNfts(connection, owner) Promise
+        +fetchTreasury(connection, programId, marketplace) Promise
         +loadNftDisplays(connection, mints) Promise
     }
     class metadata {
@@ -389,10 +424,21 @@ classDiagram
         +estimateRoyalties(price, royalty) bigint
         +breakdownSale(price, feeBps, royalty) SaleBreakdown
     }
-    class useAdmin {
+    class useUpdateFee {
         <<hook>>
-        +updateFee(bps) Promise
-        +withdraw(lamports) Promise
+        +execute(newFeeBps) Promise~boolean~
+    }
+    class useWithdrawTreasury {
+        <<hook>>
+        +execute(amountLamports) Promise~boolean~
+    }
+    class useConfirmedForm {
+        <<hook>>
+        +value: string
+        +pending: T
+        +submit(event) void
+        +confirm() void
+        +cancel() void
     }
 
     class pda {
@@ -407,6 +453,8 @@ classDiagram
         +mintParamSchema
         +feeBpsSchema
         +priceSolSchema
+        +feeBpsInputSchema
+        +withdrawAmountSchema(withdrawable)
     }
     class errors {
         <<lib>>
@@ -455,12 +503,30 @@ classDiagram
     SellView *-- SellForm
     SellView *-- TxStatusToast
     SellForm *-- PriceBreakdown
-    AdminPage *-- AdminPanel
+    AdminPage *-- AdminView
+    AdminView *-- AdminPanel
+    AdminView ..> useMarketplaceData
+    AdminPanel *-- TreasuryStats
+    AdminPanel *-- FeeForm
+    AdminPanel *-- WithdrawForm
+    AdminPanel *-- TxStatusToast
+    FeeForm *-- AdminFormShell
+    WithdrawForm *-- AdminFormShell
+    AdminFormShell *-- ConfirmDialog
+    FeeForm *-- FormField
+    WithdrawForm *-- FormField
+    SellForm *-- FormField
+    FeeForm ..> useConfirmedForm
+    WithdrawForm ..> useConfirmedForm
 
     SellForm *-- HelpIcon
     ListingCard *-- HelpIcon
     PriceBreakdown *-- HelpIcon
-    AdminPanel *-- HelpIcon
+    TreasuryStats *-- HelpIcon
+    TreasuryStats *-- Skeleton
+    FeeForm *-- HelpIcon
+    WithdrawForm *-- HelpIcon
+    Navbar ..> useMarketplaceData
     HelpIcon *-- Tooltip
 
     ListingGrid ..> useMarketplaceData
@@ -469,7 +535,9 @@ classDiagram
     SellView ..> useListNft
     ListingActions ..> usePurchaseNft
     ListingActions ..> useDelistNft
-    AdminPanel ..> useAdmin
+    AdminPanel ..> useUpdateFee
+    AdminPanel ..> useWithdrawTreasury
+    AdminPanel ..> useMarketplaceData
 
     useMarketplaceData ..> useAsyncData
     useMarketplaceData ..> listings
@@ -479,7 +547,10 @@ classDiagram
     useListNft ..> useTransaction
     useDelistNft ..> useTransaction
     usePurchaseNft ..> useTransaction
-    useAdmin ..> useTransaction
+    useUpdateFee ..> useTransaction
+    useWithdrawTreasury ..> useTransaction
+    useUpdateFee ..> instructions
+    useWithdrawTreasury ..> instructions
     useTransaction ..> TxStatus
     useTransaction ..> errors
     useMarketplaceData ..> useMarketplaceProgram
@@ -489,7 +560,8 @@ classDiagram
     instructions ..> pda
     PriceBreakdown ..> fees
     SellForm ..> schemas
-    AdminPanel ..> schemas
+    FeeForm ..> schemas
+    WithdrawForm ..> schemas
     TxStatusToast *-- Spinner
 ```
 
