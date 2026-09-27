@@ -264,17 +264,45 @@ classDiagram
     }
 
     class ListingGrid {
-        +listings: ListingView[]
-        +isLoading: boolean
+        <<client>>
     }
     class ListingCard {
         +listing: ListingView
-        +onBuy() void
-        +onCancel() void
+        +feeBps: number
+    }
+    class ListingDetail {
+        <<client>>
+        +mint: string
+    }
+    class ListingInfo {
+        +listing: ListingView
+        +feeBps: number
+    }
+    class PriceBreakdown {
+        +breakdown: SaleBreakdown
+    }
+    class ListingActions {
+        <<client>>
+        +listing: ListingView
+        +onDone() void
+    }
+    class SellView {
+        <<client>>
+    }
+    class WalletNftPicker {
+        +nfts: AsyncData~WalletNft[]~
+        +selected: string
+        +onSelect(mint) void
     }
     class SellForm {
-        +nfts: WalletNft[]
-        +onSubmit(values: SellFormValues) void
+        +feeBps: number
+        +royalty: RoyaltyInfo
+        +onSubmit(priceLamports: bigint) void
+    }
+    class NftImage {
+        +src: string
+        +name: string
+        +size: number
     }
     class AdminPanel {
         +feeBps: number
@@ -302,34 +330,64 @@ classDiagram
         <<hook>>
         +program: Program~Marketplace~
     }
-    class useListings {
+    class useAsyncData {
         <<hook>>
-        +data: ListingView[]
-        +isLoading: boolean
+        +data: T
         +error: AppError
+        +isLoading: boolean
+        +refetch() void
     }
-    class useWalletNfts {
+    class useMarketplaceData {
         <<hook>>
-        +data: WalletNft[]
+        +useMarketplace() AsyncData~MarketplaceView~
+        +useListings() AsyncData~ListingView[]~
+        +useListing(mint) AsyncData~ListingView~
+        +useWalletNfts() AsyncData~WalletNft[]~
     }
     class useTransaction {
         <<hook>>
         +status: TxStatus
         +signature: string
         +error: AppError
-        +execute(builder) Promise
+        +execute(build, onSuccess) Promise~boolean~
+        +reset() void
     }
     class useListNft {
         <<hook>>
-        +listNft(mint, priceLamports) Promise
+        +execute(nft, priceLamports) Promise~boolean~
     }
     class useDelistNft {
         <<hook>>
-        +delistNft(mint) Promise
+        +execute(listing) Promise~boolean~
     }
     class usePurchaseNft {
         <<hook>>
-        +purchaseNft(listing) Promise
+        +execute(listing) Promise~boolean~
+    }
+    class instructions {
+        <<lib>>
+        +buildListNftIx(program, params) Promise
+        +buildDelistNftIx(program, params) Promise
+        +buildPurchaseNftIx(program, params) Promise
+    }
+    class listings {
+        <<lib>>
+        +fetchMarketplace(program, address) Promise
+        +fetchListings(program, marketplace) Promise
+        +fetchListing(program, marketplace, mint) Promise
+        +fetchWalletNfts(connection, owner) Promise
+        +loadNftDisplays(connection, mints) Promise
+    }
+    class metadata {
+        <<lib>>
+        +parseMetadata(data) ParsedMetadata
+        +fetchOffchainJson(uri) Promise
+    }
+    class fees {
+        <<lib>>
+        +estimateFee(price, feeBps) bigint
+        +estimateRoyalties(price, royalty) bigint
+        +breakdownSale(price, feeBps, royalty) SaleBreakdown
     }
     class useAdmin {
         <<hook>>
@@ -386,33 +444,50 @@ classDiagram
     HomePage *-- ListingGrid
     ListingGrid *-- ListingCard
     ListingGrid *-- Skeleton
-    ListingDetailPage *-- ListingCard
-    SellPage *-- SellForm
+    ListingCard *-- NftImage
+    ListingDetailPage *-- ListingDetail
+    ListingDetail *-- ListingInfo
+    ListingDetail *-- ListingActions
+    ListingInfo *-- PriceBreakdown
+    ListingActions *-- TxStatusToast
+    SellPage *-- SellView
+    SellView *-- WalletNftPicker
+    SellView *-- SellForm
+    SellView *-- TxStatusToast
+    SellForm *-- PriceBreakdown
     AdminPage *-- AdminPanel
 
     SellForm *-- HelpIcon
     ListingCard *-- HelpIcon
+    PriceBreakdown *-- HelpIcon
     AdminPanel *-- HelpIcon
     HelpIcon *-- Tooltip
 
-    HomePage ..> useListings
-    SellPage ..> useWalletNfts
-    SellForm ..> useListNft
-    ListingCard ..> usePurchaseNft
-    ListingCard ..> useDelistNft
+    ListingGrid ..> useMarketplaceData
+    ListingDetail ..> useMarketplaceData
+    SellView ..> useMarketplaceData
+    SellView ..> useListNft
+    ListingActions ..> usePurchaseNft
+    ListingActions ..> useDelistNft
     AdminPanel ..> useAdmin
 
+    useMarketplaceData ..> useAsyncData
+    useMarketplaceData ..> listings
+    useAsyncData ..> errors
+    listings ..> metadata
+    listings ..> pda
     useListNft ..> useTransaction
     useDelistNft ..> useTransaction
     usePurchaseNft ..> useTransaction
     useAdmin ..> useTransaction
     useTransaction ..> TxStatus
     useTransaction ..> errors
-    useTransaction ..> TxStatusToast
-    useListings ..> useMarketplaceProgram
-    useListNft ..> pda
-    usePurchaseNft ..> pda
-    useDelistNft ..> pda
+    useMarketplaceData ..> useMarketplaceProgram
+    useListNft ..> instructions
+    usePurchaseNft ..> instructions
+    useDelistNft ..> instructions
+    instructions ..> pda
+    PriceBreakdown ..> fees
     SellForm ..> schemas
     AdminPanel ..> schemas
     TxStatusToast *-- Spinner
@@ -421,19 +496,39 @@ classDiagram
 ### Tipos compartidos del frontend
 
 ```typescript
+/** Royalties de la metadata de Metaplex (creadores en el orden de la metadata). */
+export interface RoyaltyInfo {
+  sellerFeeBasisPoints: number;
+  creators: { address: string; share: number }[];
+}
+
+/** Datos visibles de un NFT (on-chain + JSON off-chain). */
+export interface NftDisplay {
+  name: string;
+  imageUrl: string | null;
+  royalty: RoyaltyInfo | null;
+}
+
 /** Vista de una publicación lista para renderizar. */
 export interface ListingView {
   address: string;       // PDA del Listing
+  marketplace: string;
   seller: string;
   mint: string;
   priceLamports: bigint;
-  name: string;
-  imageUrl: string;
+  nft: NftDisplay;
+}
+
+/** NFT publicable de la wallet. */
+export interface WalletNft {
+  mint: string;
+  tokenProgram: string;  // SPL Token o Token-2022
+  nft: NftDisplay;
 }
 
 /** Error normalizado para la UI. */
 export interface AppError {
-  code: "WALLET_REJECTED" | "INSUFFICIENT_SOL" | "PROGRAM_ERROR" | "NETWORK" | "UNKNOWN";
+  code: "WALLET_NOT_CONNECTED" | "WALLET_REJECTED" | "INSUFFICIENT_SOL" | "PROGRAM_ERROR" | "NETWORK" | "UNKNOWN";
   message: string;       // mensaje en español para el usuario
 }
 

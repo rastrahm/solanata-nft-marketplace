@@ -23,11 +23,13 @@ const ANCHOR_NUMBER = /Error Number: (\d+)/;
 const CUSTOM_HEX = /custom program error: 0x([0-9a-f]+)/i;
 
 /**
- * @description Reúne en un solo texto el mensaje y los logs de un error de wallet, RPC o Anchor.
+ * @description Reúne en un solo texto el mensaje y los logs de un error de wallet, RPC o Anchor,
+ * incluidos los errores envueltos (`error` del wallet-adapter, `cause` estándar).
  * @param {unknown} error - Valor capturado en un `catch`.
+ * @param {number} depth - Niveles de anidamiento que aún se recorren.
  * @returns {string} Texto donde buscar patrones conocidos (vacío si no hay nada legible).
  */
-function errorText(error: unknown): string {
+function errorText(error: unknown, depth = 2): string {
   if (typeof error === "string") return error;
   if (typeof error !== "object" || error === null) return "";
   const parts: string[] = [];
@@ -36,7 +38,27 @@ function errorText(error: unknown): string {
     const logs: unknown = Reflect.get(error, key);
     if (Array.isArray(logs)) parts.push(...logs.filter((l): l is string => typeof l === "string"));
   }
-  return parts.join("\n");
+  if (depth > 0) {
+    for (const key of ["error", "cause"]) parts.push(errorText(Reflect.get(error, key), depth - 1));
+  }
+  return parts.filter(Boolean).join("\n");
+}
+
+/**
+ * @description Convierte el `err` de una confirmación fallida en un texto que `mapError` entiende.
+ * @param {unknown} err - Campo `value.err` de `confirmTransaction`.
+ * @returns {string} `custom program error: 0x…` si es un error del programa, o el JSON del error.
+ */
+export function transactionErrorMessage(err: unknown): string {
+  const instructionError: unknown =
+    typeof err === "object" && err !== null && Reflect.get(err, "InstructionError");
+  if (Array.isArray(instructionError)) {
+    const detail: unknown = instructionError[1];
+    const custom: unknown =
+      typeof detail === "object" && detail !== null && Reflect.get(detail, "Custom");
+    if (typeof custom === "number") return `custom program error: 0x${custom.toString(16)}`;
+  }
+  return `Transacción fallida: ${JSON.stringify(err)}`;
 }
 
 /**

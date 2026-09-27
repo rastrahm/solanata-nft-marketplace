@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactElement } from "react";
 
+import { NavLinks } from "@/components/layout/NavLinks";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { WalletButton } from "@/components/layout/WalletButton";
 import { appConfig } from "@/lib/config";
@@ -17,9 +18,12 @@ export function Navbar(): ReactElement {
         aria-label="Principal"
         className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4"
       >
-        <Link href="/" className="text-lg font-bold tracking-tight">
-          Solana NFT Marketplace
-        </Link>
+        <div className="flex items-center gap-4">
+          <Link href="/" className="text-lg font-bold tracking-tight">
+            Solana NFT Marketplace
+          </Link>
+          <NavLinks />
+        </div>
         <div className="flex items-center gap-3">
           <span className="hidden rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-700 sm:inline dark:bg-violet-900/40 dark:text-violet-300">
             {appConfig.cluster}

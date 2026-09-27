@@ -16,7 +16,9 @@
     "check": "pnpm lint && pnpm typecheck && pnpm lint:rust",
     "app:dev": "pnpm --dir app dev",
     "app:build": "pnpm --dir app build",
-    "app:check": "pnpm --dir app check"
+    "app:check": "pnpm --dir app check",
+    "app:idl": "pnpm --dir app idl:sync",
+    "app:seed": "pnpm --dir app seed:localnet"
   },
   "dependencies": {
     "@coral-xyz/anchor": "0.31.1",
