@@ -88,7 +88,7 @@ Restricción: fee_bps ≤ MAX_FEE_BPS (1 000 = 10 %)
 
 ### Errores personalizados (`MarketplaceError`)
 
-`InvalidFeeBps`, `InvalidPrice`, `MathOverflow`, `InvalidNftMint` (decimals ≠ 0 o supply ≠ 1), `InvalidTokenAmount`, `SellerCannotBuy`, `Unauthorized`, `InsufficientTreasuryFunds`, `InvalidMetadata`.
+`InvalidFeeBps`, `InvalidPrice`, `MathOverflow`, `InvalidNftMint` (decimals ≠ 0 o supply ≠ 1), `InvalidTokenAmount`, `SellerCannotBuy`, `Unauthorized`, `InsufficientTreasuryFunds`, `InvalidMetadata`, `PriceMismatch`, `InvalidAmount`, `InvalidCreatorAccounts`.
 
 ---
 
@@ -269,7 +269,19 @@ Notas de compatibilidad:
 **Criterios de aceptación**
 - 100 % de instrucciones con tests de caso feliz + casos de borde; clippy limpio; sin `unwrap()`/`expect()`.
 
-**Autorización:** `[ ] Autorizado` — Fecha: ________
+**Decisiones tomadas durante la implementación**
+- **Metadata sin la feature `metadata` de `anchor-spl`:** esa feature arrastra `mpl-token-metadata` y su árbol de dependencias. El nuevo módulo `metadata.rs` deserializa con Borsh solo el prefijo necesario (`key`, `update_authority`, `mint`, `name`, `symbol`, `uri`, `seller_fee_basis_points`, `creators`) y exige que el dueño sea el programa de Metaplex, `key == MetadataV1` y `mint == nft_mint`; si no, `InvalidMetadata`.
+- `purchase_nft` recibe la nueva cuenta `metadata` (`UncheckedAccount`) validada con `seeds = ["metadata", TOKEN_METADATA_PROGRAM_ID, mint]` y `seeds::program = TOKEN_METADATA_PROGRAM_ID`. Un NFT sin metadata (cuenta vacía y de System) se vende sin royalties.
+- **Royalties a todos los creadores según su `share`**, no solo a los verificados: es la semántica de Metaplex para `seller_fee_basis_points`. Los creadores se pasan en `remaining_accounts` en el mismo orden que en la metadata, todos `writable`; si no, se devuelve el nuevo error `InvalidCreatorAccounts` (código 6011).
+- El polvo de redondeo (`royalty_total − Σ partes`) queda para el vendedor.
+- Un creador con 0 lamports cuya parte es menor que el mínimo de renta se omite (la transferencia fallaría) y esa parte va al vendedor: así un creador vacío no bloquea la venta.
+- `NftPurchased` suma el campo `royalties` (total pagado a creadores).
+- El programa de Metaplex se carga en el validador de tests desde `tests/fixtures/mpl_token_metadata.so` (`[[test.genesis]]` en `Anchor.toml`); `tests/helpers/metadata.ts` construye `CreateMetadataAccountV3` a mano, sin SDK de Metaplex.
+- Suites nombradas `06-security.test.ts` (10 tests) y `07-royalties.test.ts` (13 tests), más 12 tests unitarios en `metadata.rs`.
+- Con un token program distinto al del mint (Token-2022 para un mint clásico), el programa ATA falla antes de que corran las constraints de Anchor, porque el `init` va primero. El test verifica el fallo atómico: el NFT sigue en la ATA del vendedor y no se crea el listing.
+- Compute units medidas (mejor caso): `initialize_marketplace` ≈ 15 k, `list_nft` ≈ 53 k, `delist_nft` ≈ 28 k, `purchase_nft` ≈ 62 k (con metadata y creadores), `update_fee` ≈ 3,5 k, `withdraw_treasury` ≈ 8 k. Las instrucciones que derivan PDAs varían unos 1 500 CU por cada bump descartado según las claves; los umbrales del test de regresión tienen margen para esa variación.
+
+**Autorización:** `[x] Autorizado` — Fecha: 2026-09-27 — **Estado: completada** (10 tests de seguridad + 13 de royalties + 12 unitarios en Rust; 99 tests de integración en total)
 
 ---
 

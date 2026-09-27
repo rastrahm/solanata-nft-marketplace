@@ -41,4 +41,7 @@ pub enum MarketplaceError {
     /// El monto de la operación debe ser mayor que cero.
     #[msg("El monto debe ser mayor que cero")]
     InvalidAmount,
+    /// Las cuentas de creadores no coinciden (en orden y dirección) con la metadata o no son escribibles.
+    #[msg("Las cuentas de creadores no coinciden con la metadata del NFT")]
+    InvalidCreatorAccounts,
 }

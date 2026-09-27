@@ -9,7 +9,13 @@ import { Keypair, PublicKey, SystemProgram } from "@solana/web3.js";
 import { Marketplace } from "../../target/types/marketplace";
 import { createFundedKeypair } from "./airdrop";
 import { createTestNft, TestToken } from "./nft";
-import { findListingPda, findMarketplacePda, findTreasuryPda, findVaultAddress } from "./pda";
+import {
+  findListingPda,
+  findMarketplacePda,
+  findMetadataPda,
+  findTreasuryPda,
+  findVaultAddress,
+} from "./pda";
 
 /** Marketplace inicializado para un test. */
 export interface TestMarketplace {
@@ -54,6 +60,7 @@ export interface PurchaseNftAccounts {
   buyerAta: PublicKey;
   listing: PublicKey;
   vault: PublicKey;
+  metadata: PublicKey;
   tokenProgram: PublicKey;
   associatedTokenProgram: PublicKey;
   systemProgram: PublicKey;
@@ -166,6 +173,7 @@ export function purchaseNftAccounts(
     buyerAta: getAssociatedTokenAddressSync(listed.nft.mint, buyer),
     listing: listed.accounts.listing,
     vault: listed.accounts.vault,
+    metadata: findMetadataPda(listed.nft.mint),
     tokenProgram: TOKEN_PROGRAM_ID,
     associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
     systemProgram: SystemProgram.programId,
@@ -187,6 +195,25 @@ export async function listTestNft(
   const connection = program.provider.connection;
   const seller = await createFundedKeypair(connection);
   const nft = await createTestNft(connection, seller, seller.publicKey);
+  return listExistingNft(program, marketplace, seller, nft, price);
+}
+
+/**
+ * @description Publica un NFT que el vendedor ya posee en su ATA.
+ * @param {Program<Marketplace>} program - Programa Marketplace.
+ * @param {PublicKey} marketplace - PDA del marketplace donde se publica.
+ * @param {Keypair} seller - Vendedor dueño del NFT.
+ * @param {TestToken} nft - NFT a publicar (mint y ATA del vendedor).
+ * @param {BN} price - Precio en lamports.
+ * @returns {Promise<ListedNft>} Vendedor, NFT y cuentas de la publicación.
+ */
+export async function listExistingNft(
+  program: Program<Marketplace>,
+  marketplace: PublicKey,
+  seller: Keypair,
+  nft: TestToken,
+  price: BN,
+): Promise<ListedNft> {
   const accounts = listNftAccounts(
     program.programId,
     marketplace,

@@ -48,6 +48,8 @@ pub struct NftPurchased {
     pub price: u64,
     /// Comisión enviada a la tesorería en lamports.
     pub fee: u64,
+    /// Total de royalties pagados a los creadores en lamports.
+    pub royalties: u64,
 }
 
 /// Se emite cuando el admin cambia la comisión con `update_fee`.
