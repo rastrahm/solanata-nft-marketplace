@@ -303,7 +303,21 @@ Notas de compatibilidad:
 - `TxStatusToast` renderiza el enlace correcto al explorer según el cluster.
 - `mapError` traduce "User rejected the request" y "insufficient lamports".
 
-**Autorización:** `[ ] Autorizado` — Fecha: ________
+**Decisiones tomadas durante la implementación**
+- Versiones: Next.js 16.3 (Turbopack), React 19.3, Tailwind CSS 4.3, next-themes 0.4, wallet-adapter (react 0.15 / react-ui 0.9), `@solana/web3.js` 1.99, Zod 4, Vitest 5 + React Testing Library 16 sobre jsdom.
+- `app/` es un proyecto pnpm independiente (su propio `pnpm-lock.yaml`, `"type": "module"`); el ESLint raíz ya lo ignoraba. Desde la raíz: `pnpm app:dev`, `pnpm app:build`, `pnpm app:check` (lint + typecheck + tests). `turbopack.root` fija la raíz en `app/` porque hay dos lockfiles.
+- **Tailwind 4 no usa `tailwind.config` con `darkMode: "class"`:** el equivalente es `@custom-variant dark (&:where(.dark, .dark *))` en `globals.css`. `next-themes` pone la clase `dark` en `<html>`, detecta el tema del sistema y guarda la elección manual.
+- **Sin `@solana/wallet-adapter-wallets`:** `wallets={[]}`, porque Phantom, Solflare, Backpack y demás se registran solas vía Wallet Standard. El `WalletMultiButton` se carga solo en cliente (`next/dynamic` con `ssr: false`) con un skeleton mientras tanto.
+- **Tooltip propio sin dependencias:** `Tooltip` accesible (hover, foco, Escape, `aria-describedby`), en lugar de Radix.
+- `useIsClient` (con `useSyncExternalStore`) evita desajustes de hidratación en el toggle de tema, sin el patrón `useEffect` + `setState` que marca el lint de React.
+- Configuración pública validada con Zod en `lib/config.ts` (`NEXT_PUBLIC_SOLANA_CLUSTER`, `NEXT_PUBLIC_RPC_URL`, `NEXT_PUBLIC_PROGRAM_ID`; ver `app/.env.example`). Por defecto: localnet en `http://127.0.0.1:8899`.
+- `lib/schemas.ts` adelanta los esquemas de las fases 8 y 9: `publicKeySchema`, `mintParamSchema`, `feeBpsSchema` (0–1 000) y `priceSolSchema`, que convierte SOL a lamports con `bigint` sin pasar por `number`, con hasta 9 decimales y un tope de `u64`.
+- `mapError` también traduce los 12 códigos `MarketplaceError` (6000–6011, en formato Anchor o `custom program error: 0x…`), busca en los logs de la transacción y reconoce errores de red.
+- Localnet se enlaza en los exploradores como cluster personalizado (`?cluster=custom&customUrl=…`).
+- `error.tsx`, `not-found.tsx` y `loading.tsx` existen por ahora en la ruta raíz; los de `/listing/[mint]`, `/sell` y `/admin` se crean junto con esas rutas en las fases 8 y 9.
+- Los Server Components no llevan directiva (`'use server'` es solo para Server Actions y rompería un componente); se documentan como tales en su JSDoc. Los de cliente declaran `'use client'`.
+
+**Autorización:** `[x] Autorizado` — Fecha: 2026-09-27 — **Estado: completada** (40 tests de Vitest; lint, typecheck y `next build` limpios)
 
 ---
 

@@ -206,17 +206,40 @@ classDiagram
     class Providers {
         <<client>>
         ThemeProvider
+    }
+    class SolanaProvider {
+        <<client>>
         ConnectionProvider
-        WalletProvider
+        WalletProvider wallets=[]
         WalletModalProvider
     }
     class Navbar {
-        <<client>>
+        <<server>>
     }
     class ThemeToggle {
         <<client>>
-        +theme: Theme
-        +toggle() void
+        +resolvedTheme: string
+        +setTheme(theme) void
+    }
+    class useIsClient {
+        <<hook>>
+        +isClient: boolean
+    }
+    class ConceptCard {
+        +concept: HelpConcept
+    }
+    class ExplorerLinks {
+        +signature: string
+        +cluster: Cluster
+    }
+    class config {
+        <<lib>>
+        +parseConfig(env) AppConfig
+        +appConfig: AppConfig
+    }
+    class help {
+        <<lib>>
+        +HELP_TEXTS: HelpEntry por HelpConcept
     }
     class WalletButton {
         <<client>>
@@ -271,6 +294,8 @@ classDiagram
         +status: TxStatus
         +signature: string
         +cluster: Cluster
+        +error: AppError
+        +onDismiss() void
     }
 
     class useMarketplaceProgram {
@@ -320,9 +345,10 @@ classDiagram
     }
     class schemas {
         <<lib>>
-        +sellFormSchema
-        +feeBpsSchema
+        +publicKeySchema
         +mintParamSchema
+        +feeBpsSchema
+        +priceSolSchema
     }
     class errors {
         <<lib>>
@@ -330,8 +356,8 @@ classDiagram
     }
     class explorer {
         <<lib>>
-        +txUrl(signature, cluster) string
-        +accountUrl(address, cluster) string
+        +txUrl(signature, cluster, explorer) string
+        +accountUrl(address, cluster, explorer) string
     }
     class TxStatus {
         <<enumeration>>
@@ -343,9 +369,19 @@ classDiagram
     }
 
     RootLayout *-- Providers
+    Providers *-- SolanaProvider
     RootLayout *-- Navbar
     Navbar *-- ThemeToggle
     Navbar *-- WalletButton
+    ThemeToggle ..> useIsClient
+    WalletButton *-- Skeleton
+    SolanaProvider ..> config
+    Navbar ..> config
+    HomePage *-- ConceptCard
+    ConceptCard *-- HelpIcon
+    HelpIcon ..> help
+    TxStatusToast *-- ExplorerLinks
+    ExplorerLinks ..> explorer
 
     HomePage *-- ListingGrid
     ListingGrid *-- ListingCard
@@ -373,8 +409,6 @@ classDiagram
     useTransaction ..> TxStatus
     useTransaction ..> errors
     useTransaction ..> TxStatusToast
-    TxStatusToast ..> explorer
-
     useListings ..> useMarketplaceProgram
     useListNft ..> pda
     usePurchaseNft ..> pda
