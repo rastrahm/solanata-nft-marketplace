@@ -14,9 +14,23 @@ pub mod state;
 
 use anchor_lang::prelude::*;
 
+pub use constants::*;
+pub use instructions::*;
+pub use state::*;
+
 declare_id!("5HwkQykA3irfntrPftwmDc2dcSUjRP3RwYga8Y3Yu6DE");
 
 /// @notice Punto de entrada del programa Marketplace.
 /// @dev Cada instrucción delega en su módulo dentro de `instructions/`.
 #[program]
-pub mod marketplace {}
+pub mod marketplace {
+    use super::*;
+
+    /// @notice Crea el marketplace de un administrador y fondea su tesorería.
+    /// @param ctx Ver `InitializeMarketplace`.
+    /// @param fee_bps Comisión en BPS (`<= MAX_FEE_BPS`).
+    /// @return `Ok(())` o `MarketplaceError::InvalidFeeBps`.
+    pub fn initialize_marketplace(ctx: Context<InitializeMarketplace>, fee_bps: u16) -> Result<()> {
+        initialize_marketplace::handler(ctx, fee_bps)
+    }
+}

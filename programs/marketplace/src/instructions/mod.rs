@@ -1,2 +1,6 @@
 //! Instrucciones del programa: un módulo por instrucción, cada uno con su
 //! struct `#[derive(Accounts)]` y su función `handler`.
+
+pub mod initialize_marketplace;
+
+pub use initialize_marketplace::*;
