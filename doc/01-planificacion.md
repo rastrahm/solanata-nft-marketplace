@@ -146,7 +146,12 @@ Notas de compatibilidad:
 **Criterios de aceptación**
 - `space` exacto de 44 bytes; todos los tests en verde.
 
-**Autorización:** `[ ] Autorizado` — Fecha: ________
+**Decisiones tomadas durante la implementación**
+- La tesorería se fondea al inicializar con `Rent::minimum_balance(0)` (≈ 0,00089 SOL) pagado por el admin, para que las primeras comisiones pequeñas no fallen por dejarla bajo el mínimo de renta. Si un tercero ya la fondeó, no se transfiere nada extra.
+- Nuevo evento `MarketplaceInitialized { marketplace, admin, treasury, fee_bps }`.
+- `MarketplaceError` queda definido completo (9 variantes) para fijar desde ya los códigos 6000–6008.
+
+**Autorización:** `[x] Autorizado` — Fecha: 2026-09-27 — **Estado: completada** (12 tests de integración + 2 unitarios en Rust)
 
 ---
 

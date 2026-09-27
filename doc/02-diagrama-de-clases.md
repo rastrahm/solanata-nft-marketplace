@@ -132,6 +132,7 @@ classDiagram
 
     class Events {
         <<event>>
+        MarketplaceInitialized(marketplace, admin, treasury, fee_bps)
         ListingCreated(listing, seller, mint, price)
         ListingCancelled(listing, seller, mint)
         NftPurchased(listing, buyer, seller, mint, price, fee)
