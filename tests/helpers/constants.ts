@@ -6,3 +6,6 @@ export const MARKETPLACE_ACCOUNT_SIZE = 44;
 
 /** Tamaño exacto de la cuenta `Listing`: 8 + 32 + 32 + 32 + 8 + 1 bytes. */
 export const LISTING_ACCOUNT_SIZE = 113;
+
+/** Tamaño de una cuenta de tokens SPL (el vault y las ATAs). */
+export const TOKEN_ACCOUNT_SIZE = 165;

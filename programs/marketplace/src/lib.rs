@@ -41,4 +41,11 @@ pub mod marketplace {
     pub fn list_nft(ctx: Context<ListNft>, price: u64) -> Result<()> {
         list_nft::handler(ctx, price)
     }
+
+    /// @notice Cancela una publicación y devuelve el NFT y la renta al vendedor.
+    /// @param ctx Ver `DelistNft`.
+    /// @return `Ok(())` o `Unauthorized` si el firmante no es el vendedor.
+    pub fn delist_nft(ctx: Context<DelistNft>) -> Result<()> {
+        delist_nft::handler(ctx)
+    }
 }
