@@ -13,7 +13,10 @@
     "lint": "eslint . && prettier --check \"{tests,migrations}/**/*.ts\"",
     "lint:fix": "eslint . --fix && prettier --write \"{tests,migrations}/**/*.ts\"",
     "lint:rust": "cargo fmt --all -- --check && cargo clippy --all-targets -- -D warnings",
-    "check": "pnpm lint && pnpm typecheck && pnpm lint:rust"
+    "check": "pnpm lint && pnpm typecheck && pnpm lint:rust",
+    "app:dev": "pnpm --dir app dev",
+    "app:build": "pnpm --dir app build",
+    "app:check": "pnpm --dir app check"
   },
   "dependencies": {
     "@coral-xyz/anchor": "0.31.1",

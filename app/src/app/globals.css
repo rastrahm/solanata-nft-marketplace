@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+/* Tailwind v4: el modo oscuro se activa con la clase `dark` que next-themes pone en <html>. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  color-scheme: light;
+}
+
+:root.dark {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-zinc-50 text-zinc-900 antialiased dark:bg-zinc-950 dark:text-zinc-100;
+}
+
+/* Botón del wallet-adapter con la paleta de la app. */
+.wallet-adapter-button-trigger {
+  @apply rounded-lg bg-violet-600 hover:bg-violet-700;
+}
