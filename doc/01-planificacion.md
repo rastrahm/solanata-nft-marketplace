@@ -193,7 +193,13 @@ Notas de compatibilidad:
 - ❌ Un usuario distinto al vendedor intenta cancelar → `Unauthorized` / `has_one`.
 - ❌ Cancelar una publicación inexistente.
 
-**Autorización:** `[ ] Autorizado` — Fecha: ________
+**Decisiones tomadas durante la implementación**
+- `listing` valida `seeds` (marketplace + mint), `has_one = seller @ Unauthorized`, `has_one = marketplace` y `listing.mint == nft_mint` como defensa en profundidad.
+- La PDA `listing` firma la transferencia y el cierre del vault; la renta del vault (165 bytes) y del Listing (113 bytes) vuelve íntegra al vendedor.
+- `seller_ata` usa `init_if_needed`: si el vendedor cerró su ATA mientras el NFT estaba publicado, se recrea para poder devolvérselo.
+- Nuevo evento `ListingCancelled { listing, marketplace, seller, mint }`.
+
+**Autorización:** `[x] Autorizado` — Fecha: 2026-09-27 — **Estado: completada** (12 tests de integración)
 
 ---
 

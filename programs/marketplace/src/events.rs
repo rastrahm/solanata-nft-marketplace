@@ -30,3 +30,16 @@ pub struct ListingCreated {
     /// Precio en lamports.
     pub price: u64,
 }
+
+/// Se emite cuando el vendedor cancela una publicación con `delist_nft`.
+#[event]
+pub struct ListingCancelled {
+    /// PDA de la publicación cerrada.
+    pub listing: Pubkey,
+    /// Marketplace donde estaba publicada.
+    pub marketplace: Pubkey,
+    /// Vendedor que recuperó el NFT.
+    pub seller: Pubkey,
+    /// Mint del NFT devuelto.
+    pub mint: Pubkey,
+}
