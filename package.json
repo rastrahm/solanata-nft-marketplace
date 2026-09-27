@@ -18,7 +18,8 @@
     "app:build": "pnpm --dir app build",
     "app:check": "pnpm --dir app check",
     "app:idl": "pnpm --dir app idl:sync",
-    "app:seed": "pnpm --dir app seed:localnet"
+    "app:seed": "pnpm --dir app seed:localnet",
+    "app:seed:devnet": "pnpm --dir app seed:devnet"
   },
   "dependencies": {
     "@coral-xyz/anchor": "0.31.1",

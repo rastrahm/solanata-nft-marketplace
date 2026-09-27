@@ -2,7 +2,8 @@ import * as anchor from "@coral-xyz/anchor";
 
 /**
  * @description Script de migración que `anchor migrate` ejecuta tras un despliegue.
- * La inicialización del marketplace en Devnet se agrega en la Fase 10.
+ * No hace nada: el marketplace se inicializa con `pnpm app:seed:devnet`, que usa los mismos
+ * constructores de instrucciones que el frontend y es re-ejecutable.
  * @param {anchor.AnchorProvider} provider - Provider configurado desde `Anchor.toml`.
  * @returns {Promise<void>} Se resuelve al terminar la migración.
  */
