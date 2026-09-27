@@ -1,0 +1,38 @@
+# `.cursorrules` — Solana NFT Marketplace (Anchor + Rust + Next.js Frontend)
+
+## 1. Principios de Arquitectura y Código
+- **TDD Obligatorio:** Escribir primero las pruebas unitarias e de integración con `@coral-xyz/anchor` e `spl-token` antes de la implementación del contrato o interfaz.
+- **Sin Dependencias Innecesarias:** Mantener los programas en Rust limpios de crates externos no esenciales.
+- **Documentación Nativa:** Cada instrucción Anchor, cuenta de estado y componente UI debe llevar comentarios explicativos claros (`///`).
+
+---
+
+## 2. Smart Contract (Anchor / Rust) — Seguridad y Optimización
+- **Optimización de Renta (Bytes/SOL):**
+  - Definir tamaños exactos de espacio (`space = 8 + DISCRIMINATOR + ...`) calculados byte por byte. Evitar asignar más memoria de la estrictamente requerida para minimizar la reserva de SOL.
+  - Usar tipos de datos eficientes (`u64` para montos, `Pubkey` para direcciones, `u8` para banderas o enumeraciones pequeñas).
+  - Usar `close = initializer` o `close = seller` al cancelar publicaciones o cerrar ventas para recuperar la renta de las cuentas.
+
+- **Hardening y Tests de Seguridad (Security-Solana Standards):**
+  - **Chequeo de Reentrancia y Firmas:** Validar que `Signer` sea exigido en todas las transferencias de tokens y fondos.
+  - **Constraint Checks:** Aplicar restricciones explícitas de Anchor (`#[account(has_one = ...)]`, `#[account(constraint = ...)]`) en lugar de validaciones manuales `if/else`.
+  - **PDA Derivation Checks:** Todas las cuentas del marketplace (escrows, listings, vaults) deben derivarse rigurosamente vía PDAs con semillas explícitas (`seeds = [b"marketplace", ...], bump`).
+  - **SPL Token & Metadata Validation:** Verificar que el Mint del NFT corresponda al token en custodia y validar que las cuentas de token asociadas (`Associated Token Accounts`) pertenezcan a los firmantes reales.
+  - **Prevenir Overflow/Underflow:** Usar `checked_add`, `checked_sub` y `checked_mul` en todos los cálculos financieros o de comisiones del marketplace.
+
+---
+
+## 3. Frontend (Next.js + Tailwind CSS + Wallet Adapter)
+- **Tema Claro / Oscuro (Light/Dark Mode):**
+  - Soporte nativo para cambio de tema utilizando `next-themes` y clases utilitarias de Tailwind CSS (`dark:...`).
+  - Detección automática del sistema operativo del usuario con opción de alternar manualmente (*toggle button*) en la barra de navegación.
+
+- **Ayuda y Experiencia de Usuario (UX/Onboarding Decente):**
+  - Incluir componentes de **Tooltips** explicativos e iconos de ayuda (`?`) al lado de conceptos clave (ej.: *BPS/Comisión*, *PDA Escrow*, *Renta de Cuenta en SOL*, *Royalties*).
+  - Flujo visual de estados: Indicadores claros de carga (*Spinners/Skeletons*), confirmaciones de transacciones con enlaces directos a *Solana Explorer* o *Solscan*, y manejo explícito de errores cuando la billetera rechaza la firma o no cuenta con suficiente SOL para la renta.
+
+---
+
+## 4. Estructura de Entregables y Cobertura de Tests
+- Toda instrucción de compra, venta, cancelación e inicialización del mercado debe incluir su prueba correspondiente en TypeScript en la carpeta `tests/`.
+- Validar las pruebas con el validador local (`solana-test-validator`).

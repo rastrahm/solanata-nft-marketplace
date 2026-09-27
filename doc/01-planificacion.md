@@ -1,0 +1,309 @@
+# 01 — Planificación por Fases
+
+> **Proyecto:** Solana NFT Marketplace (Anchor + Rust + Next.js)
+> **Metodología:** TDD obligatorio — en cada fase se escriben **primero** los tests (TypeScript con `@coral-xyz/anchor` + `@solana/spl-token`, o Vitest + React Testing Library en el frontend) y **después** la implementación.
+> **Regla de avance:** ninguna fase comienza sin la autorización explícita del responsable (marcar la casilla `[x] Autorizado` y fecha).
+
+---
+
+## Índice
+
+| Fase | Nombre | Capa |
+|------|--------|------|
+| 0 | Entorno y scaffolding | Infraestructura |
+| 1 | Estado, errores e `initialize_marketplace` | On-chain |
+| 2 | `list_nft` (publicar NFT en escrow) | On-chain |
+| 3 | `delist_nft` (cancelar publicación) | On-chain |
+| 4 | `purchase_nft` (compra con comisión) | On-chain |
+| 5 | Administración: `update_fee` y `withdraw_treasury` | On-chain |
+| 6 | Hardening, suite de seguridad y Royalties | On-chain |
+| 7 | Frontend base: layout, tema, wallet, UX helpers | Frontend |
+| 8 | Frontend: explorar, vender, comprar, cancelar | Frontend |
+| 9 | Frontend: panel de administración | Frontend |
+| 10 | Despliegue en Devnet y documentación final | Entrega |
+
+---
+
+## Decisiones de arquitectura (transversales)
+
+### Estructura del repositorio
+
+```text
+solana-nft-marketplace/
+├── Anchor.toml
+├── Cargo.toml                # workspace
+├── programs/
+│   └── marketplace/
+│       └── src/
+│           ├── lib.rs        # declare_id! + entrypoints
+│           ├── constants.rs  # seeds, MAX_FEE_BPS, BPS_DENOMINATOR
+│           ├── errors.rs     # #[error_code] MarketplaceError
+│           ├── events.rs     # #[event] ListingCreated, NftPurchased...
+│           ├── state/        # Marketplace, Listing
+│           └── instructions/ # un módulo por instrucción
+├── tests/                    # tests de integración TS (anchor test)
+│   ├── helpers/              # mint de NFTs, airdrop, PDAs
+│   ├── 01-initialize.test.ts
+│   ├── 02-list.test.ts
+│   ├── 03-delist.test.ts
+│   ├── 04-purchase.test.ts
+│   ├── 05-admin.test.ts
+│   └── 06-security.test.ts
+├── app/                      # Next.js (App Router)
+│   ├── src/app/              # rutas + error.tsx / not-found.tsx
+│   ├── src/components/
+│   ├── src/hooks/
+│   ├── src/lib/              # pda.ts, schemas.ts (Zod), explorer.ts, errors.ts
+│   └── src/__tests__/
+└── doc/
+```
+
+### Cuentas on-chain y cálculo de renta (byte por byte)
+
+| Cuenta | Campos | Tamaño | Seeds (PDA) |
+|---|---|---|---|
+| `Marketplace` | discriminator 8 + `admin: Pubkey` 32 + `fee_bps: u16` 2 + `bump: u8` 1 + `treasury_bump: u8` 1 | **44 bytes** | `[b"marketplace", admin]` |
+| `Listing` | discriminator 8 + `marketplace: Pubkey` 32 + `seller: Pubkey` 32 + `mint: Pubkey` 32 + `price: u64` 8 + `bump: u8` 1 | **113 bytes** | `[b"listing", marketplace, mint]` |
+| Treasury | `SystemAccount` (sin datos, solo lamports) | 0 bytes | `[b"treasury", marketplace]` |
+| Vault | ATA del `mint` cuya autoridad es el PDA `Listing` | 165 bytes (SPL) | ATA(`listing`, `mint`) |
+
+Renta exenta aproximada (`(tamaño + 128) × 6960 lamports`):
+
+- `Marketplace`: (44 + 128) × 6960 = **1 197 120 lamports ≈ 0,0012 SOL**
+- `Listing`: (113 + 128) × 6960 = **1 677 360 lamports ≈ 0,0017 SOL** (se recupera al cerrar con `close = seller`)
+
+**Justificación de seeds:**
+
+- `marketplace` + `admin`: permite un marketplace por administrador y evita que un tercero suplante la cuenta de configuración.
+- `listing` + `marketplace` + `mint`: un NFT solo puede tener una publicación activa por marketplace (unicidad garantizada por la dirección).
+- `treasury` + `marketplace`: la tesorería queda atada al marketplace; solo el programa puede firmar retiros.
+
+### Cálculo de comisión (sin overflow)
+
+```text
+fee           = (price as u128 × fee_bps as u128) / 10_000   → checked_mul / checked_div
+seller_amount = price − fee                                  → checked_sub
+Restricción: fee_bps ≤ MAX_FEE_BPS (1 000 = 10 %)
+```
+
+### Errores personalizados (`MarketplaceError`)
+
+`InvalidFeeBps`, `InvalidPrice`, `MathOverflow`, `InvalidNftMint` (decimals ≠ 0 o supply ≠ 1), `InvalidTokenAmount`, `SellerCannotBuy`, `Unauthorized`, `InsufficientTreasuryFunds`, `InvalidMetadata`.
+
+---
+
+## Fase 0 — Entorno y scaffolding
+
+**Objetivo:** dejar un repositorio compilable y testeable con versiones fijadas.
+
+**Tareas**
+1. Fijar versiones: Rust stable, Solana/Agave CLI 2.x, Anchor CLI ≥ 0.31 (vía `avm`), Node LTS, gestor de paquetes (pnpm o yarn).
+2. `anchor init` con el programa `marketplace` y test runner en TypeScript.
+3. Configurar `Anchor.toml` (localnet + devnet), `rustfmt.toml`, `clippy` en modo `-D warnings`.
+4. Configurar ESLint + Prettier + `tsconfig` estricto (`"strict": true`, `noImplicitAny`).
+5. Crear `tests/helpers/` (airdrop, creación de NFT de prueba con `decimals = 0` y `supply = 1`, derivación de PDAs).
+6. Inicializar Git con el `.gitignore` incluido.
+
+**Tests primero**
+- Test "smoke": el programa se despliega en `solana-test-validator` y `program.programId` coincide con `declare_id!`.
+
+**Criterios de aceptación**
+- `anchor build`, `cargo clippy -- -D warnings` y `anchor test` pasan en limpio.
+
+**Autorización:** `[ ] Autorizado` — Fecha: ________
+
+---
+
+## Fase 1 — Estado, errores e `initialize_marketplace`
+
+**Objetivo:** crear la cuenta de configuración del marketplace y su tesorería.
+
+**Instrucción:** `initialize_marketplace(fee_bps: u16)`
+- Cuentas: `admin` (Signer, mut, payer), `marketplace` (init, PDA), `treasury` (PDA, SystemAccount), `system_program`.
+- Constraint: `fee_bps <= MAX_FEE_BPS`.
+
+**Tests primero (`tests/01-initialize.test.ts`)**
+- ✅ Inicializa y persiste `admin`, `fee_bps`, `bump`, `treasury_bump`.
+- ❌ Falla con `fee_bps > MAX_FEE_BPS` → `InvalidFeeBps`.
+- ❌ Falla al reinicializar la misma PDA (cuenta ya existe).
+- ❌ Falla si `admin` no firma.
+
+**Criterios de aceptación**
+- `space` exacto de 44 bytes; todos los tests en verde.
+
+**Autorización:** `[ ] Autorizado` — Fecha: ________
+
+---
+
+## Fase 2 — `list_nft` (publicar NFT en escrow)
+
+**Objetivo:** el vendedor deposita su NFT en un vault controlado por el PDA `Listing`.
+
+**Instrucción:** `list_nft(price: u64)`
+- Cuentas: `seller` (Signer, mut), `marketplace`, `nft_mint` (validar `decimals == 0` y `supply == 1`), `seller_ata` (`associated_token::mint = nft_mint, associated_token::authority = seller`), `listing` (init, PDA), `vault` (init, ATA con autoridad `listing`), `token_program`, `associated_token_program`, `system_program`.
+- Lógica: `price > 0`; `transfer_checked` de 1 token del `seller_ata` al `vault`; emitir `ListingCreated`.
+
+**Tests primero (`tests/02-list.test.ts`)**
+- ✅ Crea `Listing`, el vault contiene 1 NFT y el `seller_ata` queda en 0.
+- ❌ `price == 0` → `InvalidPrice`.
+- ❌ Mint fungible (decimals > 0 o supply > 1) → `InvalidNftMint`.
+- ❌ `seller_ata` que no pertenece al firmante → error de constraint.
+- ❌ Publicar dos veces el mismo NFT → la PDA ya existe.
+
+**Autorización:** `[ ] Autorizado` — Fecha: ________
+
+---
+
+## Fase 3 — `delist_nft` (cancelar publicación)
+
+**Objetivo:** el vendedor recupera su NFT y la renta de las cuentas.
+
+**Instrucción:** `delist_nft()`
+- Cuentas: `seller` (Signer, mut), `marketplace`, `nft_mint`, `seller_ata` (init_if_needed), `listing` (`has_one = seller`, `has_one = mint`, `close = seller`), `vault`, programas.
+- Lógica: transferir el NFT del vault al vendedor firmando con las seeds del `Listing`; cerrar el vault (`close_account`) y el `Listing`; emitir `ListingCancelled`.
+
+**Tests primero (`tests/03-delist.test.ts`)**
+- ✅ NFT devuelto, `Listing` y vault cerrados, renta devuelta al vendedor.
+- ❌ Un usuario distinto al vendedor intenta cancelar → `Unauthorized` / `has_one`.
+- ❌ Cancelar una publicación inexistente.
+
+**Autorización:** `[ ] Autorizado` — Fecha: ________
+
+---
+
+## Fase 4 — `purchase_nft` (compra con comisión)
+
+**Objetivo:** el comprador paga en SOL, el marketplace cobra su comisión y el NFT pasa al comprador.
+
+**Instrucción:** `purchase_nft()`
+- Cuentas: `buyer` (Signer, mut), `seller` (mut, validado por `has_one`), `marketplace`, `treasury` (PDA, mut), `nft_mint`, `buyer_ata` (init_if_needed, autoridad `buyer`), `listing` (`has_one = seller`, `has_one = mint`, `close = seller`), `vault`, programas.
+- Constraint: `buyer.key() != listing.seller` → `SellerCannotBuy`.
+- Lógica: calcular `fee` y `seller_amount` con aritmética verificada; `system_program::transfer` buyer→seller y buyer→treasury; transferir el NFT vault→buyer; cerrar vault y listing; emitir `NftPurchased`.
+
+**Tests primero (`tests/04-purchase.test.ts`)**
+- ✅ Balances exactos: vendedor recibe `price − fee` (+ renta), tesorería recibe `fee`, comprador tiene el NFT.
+- ✅ Con `fee_bps = 0` el vendedor recibe el 100 %.
+- ❌ El vendedor se compra a sí mismo → `SellerCannotBuy`.
+- ❌ Comprador sin SOL suficiente → error de fondos insuficientes.
+- ❌ Cuenta `seller` sustituida por otra → `has_one` falla.
+- ❌ `treasury` falsa (otra PDA) → error de seeds.
+- ❌ Precio `u64::MAX` con fee → no hay overflow (u128 intermedio) o `MathOverflow`.
+
+**Autorización:** `[ ] Autorizado` — Fecha: ________
+
+---
+
+## Fase 5 — Administración: `update_fee` y `withdraw_treasury`
+
+**Instrucciones**
+- `update_fee(new_fee_bps: u16)` — `admin` Signer, `marketplace` con `has_one = admin`.
+- `withdraw_treasury(amount: u64)` — transfiere desde la tesorería firmando con seeds, respetando el mínimo de renta (`checked_sub`).
+
+**Tests primero (`tests/05-admin.test.ts`)**
+- ✅ Admin actualiza la comisión; ✅ admin retira fondos.
+- ❌ No-admin intenta actualizar o retirar → `has_one` / `Unauthorized`.
+- ❌ Retirar más de lo disponible → `InsufficientTreasuryFunds`.
+- ❌ `new_fee_bps > MAX_FEE_BPS` → `InvalidFeeBps`.
+
+**Autorización:** `[ ] Autorizado` — Fecha: ________
+
+---
+
+## Fase 6 — Hardening, suite de seguridad y Royalties
+
+**Objetivo:** blindar el programa y añadir el pago de royalties a creadores.
+
+**Tareas**
+1. Suite `tests/06-security.test.ts`: sustitución de cuentas (account substitution), mints falsos, vaults ajenos, token program falso, firmas faltantes, re-ejecución de instrucciones sobre cuentas cerradas.
+2. Validación de Metadata (Metaplex) mediante `anchor-spl` con feature `metadata` (sin crates adicionales): verificar que la PDA de metadata corresponde al `nft_mint`.
+3. Royalties en `purchase_nft`: leer `seller_fee_basis_points` y creadores verificados; pagar vía `remaining_accounts` validando cada dirección contra la metadata; todo con `checked_*`.
+4. Revisión de compute units (`solana logs` / `computeUnitsConsumed`) y optimización.
+5. Auditoría interna con checklist de la sección 2 de `.cursorrules`.
+
+**Criterios de aceptación**
+- 100 % de instrucciones con tests de caso feliz + casos de borde; clippy limpio; sin `unwrap()`/`expect()`.
+
+**Autorización:** `[ ] Autorizado` — Fecha: ________
+
+---
+
+## Fase 7 — Frontend base: layout, tema, wallet y UX helpers
+
+**Objetivo:** esqueleto de Next.js (App Router) listo para integrar el programa.
+
+**Tareas**
+1. Next.js + TypeScript estricto + Tailwind CSS (`darkMode: "class"`).
+2. `next-themes`: `ThemeProvider` con detección del sistema y `ThemeToggle` en la `Navbar`.
+3. `@solana/wallet-adapter-react` + UI: `WalletProvider`, `ConnectionProvider`, `WalletButton`.
+4. Componentes UX: `Tooltip`, `HelpIcon (?)`, `Spinner`, `Skeleton`, `TxStatusToast` (con enlace a Solana Explorer / Solscan).
+5. `error.tsx` y `not-found.tsx` por ruta principal.
+6. `lib/explorer.ts`, `lib/errors.ts` (mapea errores de Anchor y de wallet a mensajes en español), `lib/schemas.ts` (Zod).
+
+**Tests primero (Vitest + React Testing Library, búsqueda por rol/aria-label)**
+- `ThemeToggle` alterna entre claro y oscuro.
+- `HelpIcon` muestra el tooltip al enfocar/hover.
+- `TxStatusToast` renderiza el enlace correcto al explorer según el cluster.
+- `mapError` traduce "User rejected the request" y "insufficient lamports".
+
+**Autorización:** `[ ] Autorizado` — Fecha: ________
+
+---
+
+## Fase 8 — Frontend: explorar, vender, comprar, cancelar
+
+**Rutas**
+- `/` — Grid de publicaciones activas (`ListingGrid`, `ListingCard`, skeletons).
+- `/listing/[mint]` — Detalle del NFT, botón Comprar o Cancelar según el usuario.
+- `/sell` — Selección de NFTs de la wallet + formulario de precio (Zod), con tooltips de *Comisión BPS*, *PDA Escrow* y *Renta en SOL*.
+
+**Hooks**
+- `useMarketplaceProgram`, `useListings`, `useWalletNfts`, `useListNft`, `useDelistNft`, `usePurchaseNft`.
+
+**Tests primero**
+- Formulario de venta rechaza precios ≤ 0 o no numéricos.
+- `ListingCard` muestra precio, comisión estimada y botón accesible.
+- Hooks: flujos de estado `idle → signing → confirming → success | error` con el programa mockeado.
+- Manejo explícito: firma rechazada y SOL insuficiente para renta.
+
+**Autorización:** `[ ] Autorizado` — Fecha: ________
+
+---
+
+## Fase 9 — Frontend: panel de administración
+
+**Ruta:** `/admin` (solo visible si la wallet conectada es `marketplace.admin`).
+- Ver `fee_bps` actual y saldo de tesorería.
+- Actualizar comisión y retirar fondos, con confirmación y enlace al explorer.
+
+**Tests primero**
+- Usuario no-admin ve estado "sin permisos".
+- Validación Zod del nuevo `fee_bps` (0 – 1 000).
+
+**Autorización:** `[ ] Autorizado` — Fecha: ________
+
+---
+
+## Fase 10 — Despliegue en Devnet y documentación final
+
+**Tareas**
+1. Generar keypair del programa (fuera del repo), actualizar `declare_id!` y `Anchor.toml`.
+2. `anchor deploy --provider.cluster devnet`; publicar IDL.
+3. Inicializar el marketplace en Devnet y configurar `app/.env.example`.
+4. Ejecutar un flujo completo (listar → comprar → cancelar → retirar) contra Devnet.
+5. Actualizar `README.md` con instrucciones de instalación, tests y despliegue.
+
+**Criterios de aceptación**
+- Frontend funcional en Devnet; todos los tests (`anchor test` + `vitest`) en verde.
+
+**Autorización:** `[ ] Autorizado` — Fecha: ________
+
+---
+
+## Definición de "Hecho" (aplica a todas las fases)
+
+- [ ] Tests escritos antes de la implementación y en verde (`solana-test-validator`).
+- [ ] Cada instrucción, cuenta, función y componente documentado (`///` en Rust, JSDoc en TS).
+- [ ] Sin `unwrap()`, `expect()`, `unsafe` ni `any`.
+- [ ] Constraints explícitos en `#[derive(Accounts)]` (`seeds`, `bump`, `has_one`, `constraint`, `signer`).
+- [ ] Aritmética financiera con `checked_*`.
+- [ ] `cargo clippy -- -D warnings`, `rustfmt`, ESLint y Prettier limpios.
