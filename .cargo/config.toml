@@ -1,0 +1,4 @@
+# El toolchain SBF de Solana (platform-tools v1.48) usa rustc/cargo 1.84:
+# el resolvedor evita dependencias cuyo `rust-version` sea mayor al del programa.
+[resolver]
+incompatible-rust-versions = "fallback"

@@ -1,0 +1,38 @@
+{
+  "name": "solana-nft-marketplace",
+  "private": true,
+  "license": "ISC",
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "anchor build",
+    "test": "anchor test",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "eslint . && prettier --check \"{tests,migrations}/**/*.ts\"",
+    "lint:fix": "eslint . --fix && prettier --write \"{tests,migrations}/**/*.ts\"",
+    "lint:rust": "cargo fmt --all -- --check && cargo clippy --all-targets -- -D warnings",
+    "check": "pnpm lint && pnpm typecheck && pnpm lint:rust"
+  },
+  "dependencies": {
+    "@coral-xyz/anchor": "0.31.1",
+    "@solana/spl-token": "^0.4.13",
+    "@solana/web3.js": "^1.98.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.28.0",
+    "@types/bn.js": "^5.1.6",
+    "@types/chai": "^4.3.20",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^22.15.30",
+    "chai": "^4.5.0",
+    "eslint": "^9.28.0",
+    "eslint-config-prettier": "^10.1.5",
+    "mocha": "^10.8.2",
+    "prettier": "^3.5.3",
+    "ts-mocha": "^10.1.0",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.33.1"
+  }
+}

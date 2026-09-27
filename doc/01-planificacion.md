@@ -110,7 +110,22 @@ Restricción: fee_bps ≤ MAX_FEE_BPS (1 000 = 10 %)
 **Criterios de aceptación**
 - `anchor build`, `cargo clippy -- -D warnings` y `anchor test` pasan en limpio.
 
-**Autorización:** `[ ] Autorizado` — Fecha: ________
+**Versiones fijadas**
+
+| Herramienta | Versión | Dónde se fija |
+|---|---|---|
+| Anchor CLI / `anchor-lang` | 0.31.1 | `Anchor.toml` `[toolchain]`, `anchor-lang = "=0.31.1"` |
+| Solana / Agave CLI | 2.2.20 (platform-tools v1.48, rustc 1.84.1) | `Anchor.toml` `[toolchain]` |
+| Rust (host: IDL, clippy, fmt) | 1.89.0 | `rust-toolchain.toml` |
+| MSRV del programa | 1.84.1 | `rust-version` + `.cargo/config.toml` (resolvedor MSRV) |
+| Node.js / pnpm | 22 / 9.15.9 | `.nvmrc`, `packageManager` |
+
+Notas de compatibilidad:
+- `blake3` fijado en 1.8.2 en `Cargo.lock`: 1.8.7 arrastra `crypto-common 0.2` (edición 2024), que el Cargo 1.84 de platform-tools no puede compilar.
+- `solana-account-info` fijado en 2.2.1: 2.3.0 marca `realloc` como obsoleto y el código generado por `#[program]` rompe `clippy -D warnings`.
+- El script de tests usa `NODE_OPTIONS=--no-experimental-strip-types` para que Node 22 no ejecute los `.ts` sin pasar por `ts-node` y el `tsconfig` estricto.
+
+**Autorización:** `[x] Autorizado` — Fecha: 2026-09-27 — **Estado: completada** (7 tests en verde)
 
 ---
 
