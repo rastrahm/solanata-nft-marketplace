@@ -95,6 +95,8 @@ classDiagram
         +buyer_ata: InterfaceAccount~TokenAccount~ init_if_needed
         +listing: Account~Listing~ close=seller
         +vault: InterfaceAccount~TokenAccount~
+        +metadata: UncheckedAccount seeds::program=Metaplex
+        +remaining_accounts: creadores (mut, en orden)
     }
 
     class UpdateFee {
@@ -124,6 +126,15 @@ classDiagram
         InvalidMetadata
         PriceMismatch
         InvalidAmount
+        InvalidCreatorAccounts
+    }
+
+    class MetadataMath {
+        <<helper>>
+        +read_royalty_info(owner, data, mint) Result~Option~RoyaltyInfo~~
+        +royalty_payouts(price: u64, info) Result~Vec~u64~~
+        +check_creator_accounts(accounts, creators) Result
+        +payable_royalty(amount, recipient_lamports, rent_minimum) u64
     }
 
     class FeeMath {
@@ -138,7 +149,7 @@ classDiagram
         MarketplaceInitialized(marketplace, admin, treasury, fee_bps)
         ListingCreated(listing, seller, mint, price)
         ListingCancelled(listing, seller, mint)
-        NftPurchased(listing, buyer, seller, mint, price, fee)
+        NftPurchased(listing, buyer, seller, mint, price, fee, royalties)
         FeeUpdated(marketplace, old_fee_bps, new_fee_bps)
         TreasuryWithdrawn(marketplace, admin, amount)
     }
@@ -152,6 +163,7 @@ classDiagram
     MarketplaceProgram ..> MarketplaceError : lanza
     MarketplaceProgram ..> Events : emite
     PurchaseNft ..> FeeMath : calcula comisión
+    PurchaseNft ..> MetadataMath : royalties
     WithdrawTreasury ..> FeeMath : saldo retirable
 
     Marketplace "1" --> "1" Treasury : deriva PDA
@@ -176,7 +188,7 @@ classDiagram
 | `InitializeMarketplace` | `init`, `payer = admin`, `space = 44`, `seeds = [b"marketplace", admin]`, `bump`; `constraint = fee_bps <= MAX_FEE_BPS` |
 | `ListNft` | `listing`: `init`, `seeds = [b"listing", marketplace, nft_mint]`; `seller_ata`: `associated_token::authority = seller`; `nft_mint`: `constraint = decimals == 0 && supply == 1` |
 | `DelistNft` | `listing`: `has_one = seller`, `has_one = mint`, `close = seller`; `vault`: `associated_token::authority = listing` |
-| `PurchaseNft` | `listing`: `has_one = seller`, `has_one = marketplace`, `close = seller`, `constraint = listing.seller != buyer @ SellerCannotBuy`, `constraint = listing.price == expected_price @ PriceMismatch`; `treasury`: `seeds = [b"treasury", marketplace]`, `bump = marketplace.treasury_bump` |
+| `PurchaseNft` | `listing`: `has_one = seller`, `has_one = marketplace`, `close = seller`, `constraint = listing.seller != buyer @ SellerCannotBuy`, `constraint = listing.price == expected_price @ PriceMismatch`; `treasury`: `seeds = [b"treasury", marketplace]`, `bump = marketplace.treasury_bump`; `metadata`: `seeds = [b"metadata", TOKEN_METADATA_PROGRAM_ID, nft_mint]`, `seeds::program = TOKEN_METADATA_PROGRAM_ID`; creadores en `remaining_accounts` → `InvalidCreatorAccounts` |
 | `UpdateFee` / `WithdrawTreasury` | `marketplace`: `has_one = admin`; `admin`: `Signer` |
 
 ---

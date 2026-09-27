@@ -11,6 +11,7 @@ pub mod errors;
 pub mod events;
 pub mod fees;
 pub mod instructions;
+pub mod metadata;
 pub mod state;
 
 use anchor_lang::prelude::*;
@@ -54,7 +55,10 @@ pub mod marketplace {
     /// @param ctx Ver `PurchaseNft`.
     /// @param expected_price Precio que el comprador acepta (debe coincidir con el del Listing).
     /// @return `Ok(())` o `SellerCannotBuy` / `PriceMismatch` / `MathOverflow`.
-    pub fn purchase_nft(ctx: Context<PurchaseNft>, expected_price: u64) -> Result<()> {
+    pub fn purchase_nft<'info>(
+        ctx: Context<'_, '_, 'info, 'info, PurchaseNft<'info>>,
+        expected_price: u64,
+    ) -> Result<()> {
         purchase_nft::handler(ctx, expected_price)
     }
 

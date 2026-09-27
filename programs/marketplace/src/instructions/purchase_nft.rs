@@ -10,9 +10,16 @@ use crate::constants::{LISTING_SEED, MARKETPLACE_SEED, TREASURY_SEED};
 use crate::errors::MarketplaceError;
 use crate::events::NftPurchased;
 use crate::fees::{calculate_fee, seller_amount};
+use crate::metadata::{
+    check_creator_accounts, payable_royalty, read_royalty_info, royalty_payouts, Creator,
+    METADATA_SEED, TOKEN_METADATA_PROGRAM_ID,
+};
 use crate::state::{Listing, Marketplace};
 
 /// Cuentas de `purchase_nft`.
+///
+/// `remaining_accounts`: cuentas escribibles de los creadores, en el mismo orden que en la
+/// metadata del NFT (vacío si el NFT no tiene metadata o creadores).
 #[derive(Accounts)]
 #[instruction(expected_price: u64)]
 pub struct PurchaseNft<'info> {
@@ -20,7 +27,7 @@ pub struct PurchaseNft<'info> {
     #[account(mut)]
     pub buyer: Signer<'info>,
 
-    /// Vendedor: recibe `price - fee` y la renta del Listing y del vault.
+    /// Vendedor: recibe `price - fee - royalties` y la renta del Listing y del vault.
     /// Se valida con `has_one = seller` en `listing` para impedir desviar el pago.
     #[account(mut)]
     pub seller: SystemAccount<'info>,
@@ -77,6 +84,16 @@ pub struct PurchaseNft<'info> {
     )]
     pub vault: InterfaceAccount<'info, TokenAccount>,
 
+    /// CHECK: PDA de metadata de Metaplex del `nft_mint`. Las seeds impiden pasar la metadata de
+    /// otro NFT para evadir royalties; `read_royalty_info` valida dueño, tipo de cuenta y mint.
+    /// Si la cuenta no existe, el NFT no tiene royalties.
+    #[account(
+        seeds = [METADATA_SEED, TOKEN_METADATA_PROGRAM_ID.as_ref(), nft_mint.key().as_ref()],
+        bump,
+        seeds::program = TOKEN_METADATA_PROGRAM_ID,
+    )]
+    pub metadata: UncheckedAccount<'info>,
+
     /// SPL Token o Token-2022 (restringido por `Interface`).
     pub token_program: Interface<'info, TokenInterface>,
     /// Requerido si hay que crear la ATA del comprador.
@@ -85,47 +102,62 @@ pub struct PurchaseNft<'info> {
     pub system_program: Program<'info, System>,
 }
 
-/// @notice Compra un NFT: paga al vendedor y a la tesorería y entrega el NFT al comprador.
-/// @dev Orden: pagos en SOL (vendedor, tesorería), transferencia del NFT firmada por la PDA
-///      `listing`, cierre del vault y cierre del Listing (`close = seller`).
+/// @notice Compra un NFT: paga al vendedor, a la tesorería y a los creadores, y entrega el NFT.
+/// @dev Orden: cálculo de comisión y royalties con aritmética verificada, pagos en SOL
+///      (vendedor, tesorería, creadores), transferencia del NFT firmada por la PDA `listing`,
+///      cierre del vault y cierre del Listing (`close = seller`).
 /// @param ctx Cuentas: `buyer`, `seller`, `marketplace`, `treasury`, `nft_mint`, `buyer_ata`
-///        (se crea si falta), `listing`, `vault` y los programas token, associated token y system.
-/// @param expected_price Precio que el comprador vio y acepta; protege contra cambios de precio
-///        entre que firma y que la transacción se ejecuta.
+///        (se crea si falta), `listing`, `vault`, `metadata`, los programas token, associated token
+///        y system; y en `remaining_accounts` los creadores en el orden de la metadata.
+/// @param _expected_price Precio que el comprador vio y acepta; se valida como constraint contra
+///        `listing.price` para proteger contra cambios de precio (front-running).
 /// @return `Ok(())` si la compra se completa. Errores: `SellerCannotBuy`, `PriceMismatch`,
-///         `MathOverflow`, `ConstraintHasOne` si se sustituye al vendedor, `ConstraintSeeds` si la
-///         tesorería o el Listing no corresponden, fondos insuficientes del comprador.
-pub(crate) fn handler(ctx: Context<PurchaseNft>, _expected_price: u64) -> Result<()> {
+///         `MathOverflow` (incluye royalties + comisión mayores al precio), `InvalidMetadata`,
+///         `InvalidCreatorAccounts`, `ConstraintHasOne` si se sustituye al vendedor,
+///         `ConstraintSeeds` si la tesorería, el Listing o la metadata no corresponden.
+pub(crate) fn handler<'info>(
+    ctx: Context<'_, '_, 'info, 'info, PurchaseNft<'info>>,
+    _expected_price: u64,
+) -> Result<()> {
     let price = ctx.accounts.listing.price;
-    let fee = calculate_fee(price, ctx.accounts.marketplace.fee_bps)?;
-    let to_seller = seller_amount(price, fee)?;
-
-    transfer(
-        CpiContext::new(
-            ctx.accounts.system_program.to_account_info(),
-            Transfer {
-                from: ctx.accounts.buyer.to_account_info(),
-                to: ctx.accounts.seller.to_account_info(),
-            },
-        ),
-        to_seller,
-    )?;
-
-    if fee > 0 {
-        transfer(
-            CpiContext::new(
-                ctx.accounts.system_program.to_account_info(),
-                Transfer {
-                    from: ctx.accounts.buyer.to_account_info(),
-                    to: ctx.accounts.treasury.to_account_info(),
-                },
-            ),
-            fee,
-        )?;
-    }
-
     let marketplace_key = ctx.accounts.marketplace.key();
     let mint_key = ctx.accounts.nft_mint.key();
+
+    let royalty_info = {
+        let metadata = ctx.accounts.metadata.to_account_info();
+        let data = metadata.try_borrow_data()?;
+        read_royalty_info(metadata.owner, &data, &mint_key)?
+    };
+    let (creators, payouts): (&[Creator], Vec<u64>) = match &royalty_info {
+        Some(info) => (&info.creators, royalty_payouts(price, info)?),
+        None => (&[], Vec::new()),
+    };
+    check_creator_accounts(ctx.remaining_accounts, creators)?;
+
+    let rent_minimum = Rent::get()?.minimum_balance(0);
+    let paid_royalties: Vec<u64> = ctx
+        .remaining_accounts
+        .iter()
+        .zip(&payouts)
+        .map(|(account, amount)| payable_royalty(*amount, account.lamports(), rent_minimum))
+        .collect();
+    let royalties = paid_royalties
+        .iter()
+        .try_fold(0u64, |total, amount| total.checked_add(*amount))
+        .ok_or(MarketplaceError::MathOverflow)?;
+
+    let fee = calculate_fee(price, ctx.accounts.marketplace.fee_bps)?;
+    let deductions = fee
+        .checked_add(royalties)
+        .ok_or(MarketplaceError::MathOverflow)?;
+    let to_seller = seller_amount(price, deductions)?;
+
+    pay(&ctx, ctx.accounts.seller.to_account_info(), to_seller)?;
+    pay(&ctx, ctx.accounts.treasury.to_account_info(), fee)?;
+    for (creator, amount) in ctx.remaining_accounts.iter().zip(paid_royalties) {
+        pay(&ctx, creator.clone(), amount)?;
+    }
+
     let signer_seeds: &[&[&[u8]]] = &[&[
         LISTING_SEED,
         marketplace_key.as_ref(),
@@ -166,7 +198,33 @@ pub(crate) fn handler(ctx: Context<PurchaseNft>, _expected_price: u64) -> Result
         mint: mint_key,
         price,
         fee,
+        royalties,
     });
 
     Ok(())
+}
+
+/// @notice Transfiere lamports del comprador a un destinatario; omite los montos en 0.
+/// @param ctx Contexto de la compra (aporta `buyer` y `system_program`).
+/// @param to Cuenta destino (vendedor, tesorería o creador).
+/// @param amount Lamports a transferir.
+/// @return `Ok(())` o el error del System Program (p. ej. fondos insuficientes).
+fn pay<'info>(
+    ctx: &Context<'_, '_, 'info, 'info, PurchaseNft<'info>>,
+    to: AccountInfo<'info>,
+    amount: u64,
+) -> Result<()> {
+    if amount == 0 {
+        return Ok(());
+    }
+    transfer(
+        CpiContext::new(
+            ctx.accounts.system_program.to_account_info(),
+            Transfer {
+                from: ctx.accounts.buyer.to_account_info(),
+                to,
+            },
+        ),
+        amount,
+    )
 }

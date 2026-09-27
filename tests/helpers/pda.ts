@@ -44,6 +44,23 @@ export function findListingPda(
   );
 }
 
+/** ID del programa Metaplex Token Metadata. */
+export const TOKEN_METADATA_PROGRAM_ID = new PublicKey(
+  "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s",
+);
+
+/**
+ * @description Deriva la PDA de metadata de Metaplex de un mint.
+ * @param {PublicKey} mint - Mint del NFT.
+ * @returns {PublicKey} Dirección de la cuenta de metadata (exista o no).
+ */
+export function findMetadataPda(mint: PublicKey): PublicKey {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("metadata"), TOKEN_METADATA_PROGRAM_ID.toBuffer(), mint.toBuffer()],
+    TOKEN_METADATA_PROGRAM_ID,
+  )[0];
+}
+
 /**
  * @description Calcula la ATA vault que custodia el NFT; su autoridad es la PDA del Listing.
  * @param {PublicKey} listing - PDA del Listing (autoridad fuera de curva).

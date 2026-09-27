@@ -20,5 +20,10 @@ url = "https://api.apr.dev"
 cluster = "localnet"
 wallet = "~/.config/solana/id.json"
 
+# Metaplex Token Metadata (volcado de mainnet con `solana program dump`) para probar royalties.
+[[test.genesis]]
+address = "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s"
+program = "tests/fixtures/mpl_token_metadata.so"
+
 [scripts]
 test = "NODE_OPTIONS=--no-experimental-strip-types pnpm exec ts-mocha -p ./tsconfig.json -t 1000000 \"tests/**/*.test.ts\""
