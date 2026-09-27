@@ -369,7 +369,17 @@ Notas de compatibilidad:
 - Usuario no-admin ve estado "sin permisos".
 - Validación Zod del nuevo `fee_bps` (0 – 1 000).
 
-**Autorización:** `[ ] Autorizado` — Fecha: ________
+**Decisiones tomadas durante la implementación**
+- **Control de acceso en dos niveles:** la UI compara la wallet conectada con `marketplace.admin` y muestra "Sin permisos" (`role="alert"`) a cualquier otra. La restricción real la aplica el programa (`has_one = admin`); la UI solo evita firmar transacciones que fallarían. El enlace "Admin" del menú aparece únicamente para esa wallet, y `/admin` lleva `noindex`.
+- **Saldo retirable = saldo − renta mínima de 0 bytes** (`fetchTreasury`, con `getMinimumBalanceForRentExemption(0)` del RPC), igual que la restricción `InsufficientTreasuryFunds` del programa; nunca es negativo.
+- **Esquemas Zod para los formularios:** `feeBpsInputSchema` (texto → entero, luego `feeBpsSchema`) y `withdrawAmountSchema(retirable)`, que reutiliza la conversión SOL → lamports en `bigint` de `priceSolSchema` y añade el tope. Además, el formulario rechaza una comisión igual a la actual.
+- **Confirmación en línea** (`ConfirmDialog`, `role="alertdialog"`) con los valores concretos antes de firmar. `useConfirmedForm` y `AdminFormShell` comparten el flujo "validar → confirmar → enviar" entre ambos formularios. "Retirar todo" completa el máximo retirable.
+- **Hooks de acción** `useUpdateFee` y `useWithdrawTreasury` en lugar de un `useAdmin` único: siguen el patrón de `useListNft`/`usePurchaseNft` y cada uno tiene su propio estado de transacción y aviso con enlaces al explorer. Tras el éxito se recarga el marketplace o la tesorería.
+- **Nuevo concepto de ayuda `TREASURY`** (tooltip) que explica por qué siempre queda la renta mínima en la tesorería.
+- `PriceField` pasó a usar un `FormField` genérico, compartido con los formularios del admin.
+- **Verificación end-to-end:** `pnpm app:seed` ahora sube la comisión a 300 BPS, retira la mitad de lo retirable (comprobando el descuento exacto) y verifica que el programa rechaza retirar 1 lamport de más (`0x1777`). Deja el keypair del admin en `/tmp/marketplace-seed-admin.json` para probar el panel con una wallet en localnet.
+
+**Autorización:** `[x] Autorizado` — Fecha: 2026-09-27 — **Estado: completada** (114 tests de Vitest; lint, typecheck, `next build` y siembra contra localnet OK)
 
 ---
 

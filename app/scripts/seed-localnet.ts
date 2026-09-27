@@ -1,7 +1,8 @@
 /**
  * Siembra un validador local con un marketplace y publicaciones de prueba usando los MISMOS
  * constructores de instrucciones que el frontend (`src/lib/instructions.ts`), y ejecuta una compra
- * (con royalties) y una cancelación para verificarlos contra el programa real.
+ * (con royalties), una cancelación y las acciones del admin (comisión y retiro) para verificarlos
+ * contra el programa real.
  *
  * Uso: validador local con el programa y Metaplex cargados, luego `pnpm seed:localnet`.
  * Imprime el `NEXT_PUBLIC_MARKETPLACE_ADMIN` a poner en `app/.env.local`.
@@ -28,16 +29,26 @@ import {
   TransactionInstruction,
 } from "@solana/web3.js";
 
-import { buildDelistNftIx, buildListNftIx, buildPurchaseNftIx } from "../src/lib/instructions";
+import { writeFileSync } from "node:fs";
+
+import {
+  buildDelistNftIx,
+  buildListNftIx,
+  buildPurchaseNftIx,
+  buildUpdateFeeIx,
+  buildWithdrawTreasuryIx,
+} from "../src/lib/instructions";
+import { fetchMarketplace, fetchTreasury } from "../src/lib/listings";
 import {
   findMarketplacePda,
   findMetadataPda,
   findTreasuryPda,
   TOKEN_METADATA_PROGRAM_ID,
 } from "../src/lib/pda";
-import { createReadonlyProgram } from "../src/lib/program";
+import { createReadonlyProgram, type MarketplaceProgram } from "../src/lib/program";
 
 const connection = new Connection("http://127.0.0.1:8899", "confirmed");
+const ADMIN_KEYPAIR_PATH = "/tmp/marketplace-seed-admin.json";
 const CREATE_METADATA_ACCOUNT_V3 = 33;
 
 /**
@@ -134,6 +145,54 @@ function send(ix: TransactionInstruction, signer: Keypair): Promise<string> {
   });
 }
 
+/**
+ * @description Verifica las acciones del panel `/admin`: sube la comisión a 300 BPS, retira parte de
+ * la tesorería y comprueba que el programa rechaza retirar más de lo retirable.
+ * @param {MarketplaceProgram} program - Cliente del programa.
+ * @param {Keypair} admin - Admin del marketplace.
+ * @param {PublicKey} marketplace - PDA del marketplace.
+ * @returns {Promise<void>} Resuelve si todo coincide con lo esperado.
+ */
+async function verifyAdmin(
+  program: MarketplaceProgram,
+  admin: Keypair,
+  marketplace: PublicKey,
+): Promise<void> {
+  await send(
+    await buildUpdateFeeIx(program, { admin: admin.publicKey, marketplace, newFeeBps: 300 }),
+    admin,
+  );
+  const feeBps = (await fetchMarketplace(program, marketplace))?.feeBps;
+  if (feeBps !== 300) throw new Error(`Comisión inesperada: ${feeBps}`);
+  console.log("Comisión actualizada a 300 BPS");
+
+  const before = await fetchTreasury(connection, program.programId, marketplace);
+  const amountLamports = before.withdrawableLamports / 2n;
+  await send(
+    await buildWithdrawTreasuryIx(program, { admin: admin.publicKey, marketplace, amountLamports }),
+    admin,
+  );
+  const after = await fetchTreasury(connection, program.programId, marketplace);
+  if (before.balanceLamports - after.balanceLamports !== amountLamports) {
+    throw new Error("El retiro no descontó el monto esperado");
+  }
+  console.log(
+    `Retiro OK: ${amountLamports} lamports; retirable restante ${after.withdrawableLamports}`,
+  );
+
+  const tooMuch = await buildWithdrawTreasuryIx(program, {
+    admin: admin.publicKey,
+    marketplace,
+    amountLamports: after.withdrawableLamports + 1n,
+  });
+  const rejected = await send(tooMuch, admin).then(
+    () => false,
+    (error: unknown) => String(error).includes("0x1777"),
+  );
+  if (!rejected) throw new Error("El programa debió rechazar un retiro mayor al retirable");
+  console.log("Retiro excesivo rechazado (InsufficientTreasuryFunds)");
+}
+
 /** Ejecuta la siembra y las verificaciones. */
 async function main(): Promise<void> {
   const [admin, seller, buyer, creator] = await Promise.all([
@@ -208,7 +267,11 @@ async function main(): Promise<void> {
   );
   console.log("Cancelación OK");
 
+  await verifyAdmin(program, admin, marketplace);
+  writeFileSync(ADMIN_KEYPAIR_PATH, JSON.stringify(Array.from(admin.secretKey)));
+
   console.log(`\nNEXT_PUBLIC_MARKETPLACE_ADMIN=${admin.publicKey.toBase58()}`);
+  console.log(`Keypair del admin (solo localnet, importable en una wallet): ${ADMIN_KEYPAIR_PATH}`);
   console.log(
     `Vendedor: ${seller.publicKey.toBase58()} · Comprador: ${buyer.publicKey.toBase58()}`,
   );

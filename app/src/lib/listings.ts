@@ -4,9 +4,20 @@ import { z } from "zod";
 
 import { shortenAddress } from "@/lib/format";
 import { fetchOffchainJson, parseMetadata } from "@/lib/metadata";
-import { findListingPda, findMetadataPda, TOKEN_METADATA_PROGRAM_ID } from "@/lib/pda";
+import {
+  findListingPda,
+  findMetadataPda,
+  findTreasuryPda,
+  TOKEN_METADATA_PROGRAM_ID,
+} from "@/lib/pda";
 import type { MarketplaceProgram } from "@/lib/program";
-import type { ListingView, MarketplaceView, NftDisplay, WalletNft } from "@/lib/types";
+import type {
+  ListingView,
+  MarketplaceView,
+  NftDisplay,
+  TreasuryView,
+  WalletNft,
+} from "@/lib/types";
 
 /** Offset del campo `marketplace` en la cuenta `Listing` (tras el discriminador). */
 const LISTING_MARKETPLACE_OFFSET = 8;
@@ -87,6 +98,32 @@ export async function fetchMarketplace(
   const account = await program.account.marketplace.fetchNullable(address);
   if (!account) return null;
   return { address: address.toBase58(), admin: account.admin.toBase58(), feeBps: account.feeBps };
+}
+
+/**
+ * @description Saldo de la tesorería y lo retirable (el programa conserva la renta mínima de una cuenta de 0 bytes).
+ * @param {Connection} connection - Conexión RPC.
+ * @param {PublicKey} programId - ID del programa.
+ * @param {PublicKey} marketplace - PDA del marketplace.
+ * @returns {Promise<TreasuryView>} Saldo total y retirable en lamports.
+ */
+export async function fetchTreasury(
+  connection: Connection,
+  programId: PublicKey,
+  marketplace: PublicKey,
+): Promise<TreasuryView> {
+  const address = findTreasuryPda(programId, marketplace);
+  const [balance, rentMin] = await Promise.all([
+    connection.getBalance(address),
+    connection.getMinimumBalanceForRentExemption(0),
+  ]);
+  const balanceLamports = BigInt(balance);
+  const reserve = BigInt(rentMin);
+  return {
+    address: address.toBase58(),
+    balanceLamports,
+    withdrawableLamports: balanceLamports > reserve ? balanceLamports - reserve : 0n,
+  };
 }
 
 /**

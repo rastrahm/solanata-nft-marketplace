@@ -1,6 +1,8 @@
 import { PublicKey } from "@solana/web3.js";
 import { z } from "zod";
 
+import { formatSol } from "@/lib/format";
+
 /** Comisión máxima del programa (`MAX_FEE_BPS`): 1 000 BPS = 10 %. */
 export const MAX_FEE_BPS = 1000;
 /** Lamports por SOL. */
@@ -46,11 +48,43 @@ export const feeBpsSchema = z
   .min(0, "La comisión no puede ser negativa.")
   .max(MAX_FEE_BPS, "La comisión máxima es 1 000 BPS (10 %).");
 
-/** Precio en SOL escrito por el usuario; se transforma a lamports (`bigint`) > 0 y ≤ u64. */
-export const priceSolSchema = z
+/** Comisión en BPS escrita por el usuario; se transforma a entero validado con `feeBpsSchema`. */
+export const feeBpsInputSchema = z
   .string()
   .trim()
-  .regex(SOL_AMOUNT, "Escribe un número positivo con hasta 9 decimales.")
-  .transform(solToLamports)
-  .refine((lamports) => lamports > 0n, "El precio debe ser mayor que cero.")
-  .refine((lamports) => lamports <= U64_MAX, "El precio excede el máximo permitido.");
+  .regex(/^\d+$/, "La comisión debe ser un número entero de BPS.")
+  .transform(Number)
+  .pipe(feeBpsSchema);
+
+/** Esquema que recibe un monto en SOL (texto) y produce lamports. */
+export type LamportsSchema = z.ZodType<bigint, string>;
+
+/**
+ * @description Esquema base para un monto en SOL escrito por el usuario, transformado a lamports.
+ * @param {string} label - Sustantivo para los mensajes de error (p. ej. `"El precio"`).
+ * @returns {LamportsSchema} Esquema que produce lamports (`bigint`) > 0 y ≤ u64.
+ */
+function solAmountSchema(label: string): LamportsSchema {
+  return z
+    .string()
+    .trim()
+    .regex(SOL_AMOUNT, "Escribe un número positivo con hasta 9 decimales.")
+    .transform(solToLamports)
+    .refine((lamports) => lamports > 0n, `${label} debe ser mayor que cero.`)
+    .refine((lamports) => lamports <= U64_MAX, `${label} excede el máximo permitido.`);
+}
+
+/** Precio en SOL escrito por el usuario; se transforma a lamports (`bigint`) > 0 y ≤ u64. */
+export const priceSolSchema = solAmountSchema("El precio");
+
+/**
+ * @description Monto a retirar de la tesorería, limitado a lo retirable (saldo − renta mínima).
+ * @param {bigint} withdrawableLamports - Máximo retirable en lamports.
+ * @returns {LamportsSchema} Esquema que produce lamports (`bigint`).
+ */
+export function withdrawAmountSchema(withdrawableLamports: bigint): LamportsSchema {
+  return solAmountSchema("El monto").refine(
+    (lamports) => lamports <= withdrawableLamports,
+    `Solo puedes retirar hasta ${formatSol(withdrawableLamports)}.`,
+  );
+}
