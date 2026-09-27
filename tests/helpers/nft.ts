@@ -1,11 +1,22 @@
 import {
   AuthorityType,
-  createMint,
-  getOrCreateAssociatedTokenAccount,
-  mintTo,
-  setAuthority,
+  createAssociatedTokenAccountInstruction,
+  createInitializeMint2Instruction,
+  createMintToInstruction,
+  createSetAuthorityInstruction,
+  getAssociatedTokenAddressSync,
+  getMinimumBalanceForRentExemptMint,
+  MINT_SIZE,
+  TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
-import { Connection, Keypair, PublicKey } from "@solana/web3.js";
+import {
+  Connection,
+  Keypair,
+  PublicKey,
+  sendAndConfirmTransaction,
+  SystemProgram,
+  Transaction,
+} from "@solana/web3.js";
 
 /** Token SPL creado para un test, junto con la ATA de su dueño. */
 export interface TestToken {
@@ -24,8 +35,9 @@ export interface TestTokenOptions {
 }
 
 /**
- * @description Crea un mint SPL, acuña `amount` en la ATA de `owner` y opcionalmente fija el supply.
- * Se usa para generar tanto NFTs válidos como tokens inválidos en casos negativos.
+ * @description Crea un mint SPL, acuña `amount` en la ATA de `owner` y opcionalmente fija el
+ * supply, todo en una sola transacción. Se usa para generar tanto NFTs válidos como tokens
+ * inválidos en casos negativos.
  * @param {Connection} connection - Conexión RPC al validador local.
  * @param {Keypair} payer - Paga la renta y actúa como mint authority inicial.
  * @param {PublicKey} owner - Dueño de la ATA que recibe los tokens.
@@ -38,13 +50,32 @@ export async function createTestToken(
   owner: PublicKey,
   options: TestTokenOptions,
 ): Promise<TestToken> {
-  const mint = await createMint(connection, payer, payer.publicKey, null, options.decimals);
-  const ata = await getOrCreateAssociatedTokenAccount(connection, payer, mint, owner);
-  await mintTo(connection, payer, mint, ata.address, payer, options.amount);
+  const mint = Keypair.generate();
+  const ownerAta = getAssociatedTokenAddressSync(mint.publicKey, owner);
+  const tx = new Transaction().add(
+    SystemProgram.createAccount({
+      fromPubkey: payer.publicKey,
+      newAccountPubkey: mint.publicKey,
+      lamports: await getMinimumBalanceForRentExemptMint(connection),
+      space: MINT_SIZE,
+      programId: TOKEN_PROGRAM_ID,
+    }),
+    createInitializeMint2Instruction(mint.publicKey, options.decimals, payer.publicKey, null),
+    createAssociatedTokenAccountInstruction(payer.publicKey, ownerAta, owner, mint.publicKey),
+    createMintToInstruction(mint.publicKey, ownerAta, payer.publicKey, options.amount),
+  );
   if (options.lockSupply) {
-    await setAuthority(connection, payer, mint, payer, AuthorityType.MintTokens, null);
+    tx.add(
+      createSetAuthorityInstruction(
+        mint.publicKey,
+        payer.publicKey,
+        AuthorityType.MintTokens,
+        null,
+      ),
+    );
   }
-  return { mint, ownerAta: ata.address };
+  await sendAndConfirmTransaction(connection, tx, [payer, mint], { commitment: "confirmed" });
+  return { mint: mint.publicKey, ownerAta };
 }
 
 /**

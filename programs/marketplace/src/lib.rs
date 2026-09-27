@@ -9,6 +9,7 @@
 pub mod constants;
 pub mod errors;
 pub mod events;
+pub mod fees;
 pub mod instructions;
 pub mod state;
 
@@ -47,5 +48,13 @@ pub mod marketplace {
     /// @return `Ok(())` o `Unauthorized` si el firmante no es el vendedor.
     pub fn delist_nft(ctx: Context<DelistNft>) -> Result<()> {
         delist_nft::handler(ctx)
+    }
+
+    /// @notice Compra un NFT pagando en SOL; la comisión va a la tesorería del marketplace.
+    /// @param ctx Ver `PurchaseNft`.
+    /// @param expected_price Precio que el comprador acepta (debe coincidir con el del Listing).
+    /// @return `Ok(())` o `SellerCannotBuy` / `PriceMismatch` / `MathOverflow`.
+    pub fn purchase_nft(ctx: Context<PurchaseNft>, expected_price: u64) -> Result<()> {
+        purchase_nft::handler(ctx, expected_price)
     }
 }

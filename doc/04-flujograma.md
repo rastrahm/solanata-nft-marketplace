@@ -90,8 +90,10 @@ flowchart TD
     C -- Sí --> D{¿treasury coincide con seeds treasury + marketplace?}
     D -- No --> X3[/Error: ConstraintSeeds/]
     D -- Sí --> E{¿buyer distinto de seller?}
+    E -- Sí --> E2{¿listing.price igual a expected_price?}
+    E2 -- No --> X8[/Error: PriceMismatch/]
     E -- No --> X4[/Error: SellerCannotBuy/]
-    E -- Sí --> F{¿vault pertenece a Listing y contiene 1 NFT?}
+    E2 -- Sí --> F{¿vault pertenece a Listing y contiene 1 NFT?}
     F -- No --> X5[/Error: InvalidTokenAmount/]
     F -- Sí --> G["fee = price × fee_bps / 10000 (u128, checked)"]
     G --> H{¿Overflow en el cálculo?}
