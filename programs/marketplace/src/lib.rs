@@ -57,4 +57,20 @@ pub mod marketplace {
     pub fn purchase_nft(ctx: Context<PurchaseNft>, expected_price: u64) -> Result<()> {
         purchase_nft::handler(ctx, expected_price)
     }
+
+    /// @notice Cambia la comisión del marketplace (solo el admin).
+    /// @param ctx Ver `UpdateFee`.
+    /// @param new_fee_bps Nueva comisión en BPS (`<= MAX_FEE_BPS`).
+    /// @return `Ok(())` o `Unauthorized` / `InvalidFeeBps`.
+    pub fn update_fee(ctx: Context<UpdateFee>, new_fee_bps: u16) -> Result<()> {
+        update_fee::handler(ctx, new_fee_bps)
+    }
+
+    /// @notice Retira comisiones de la tesorería hacia el admin sin tocar su renta mínima.
+    /// @param ctx Ver `WithdrawTreasury`.
+    /// @param amount Lamports a retirar.
+    /// @return `Ok(())` o `Unauthorized` / `InvalidAmount` / `InsufficientTreasuryFunds`.
+    pub fn withdraw_treasury(ctx: Context<WithdrawTreasury>, amount: u64) -> Result<()> {
+        withdraw_treasury::handler(ctx, amount)
+    }
 }
