@@ -1,3 +1,6 @@
+// @vitest-environment node
+// jsdom usa sus propios Uint8Array y rompe la derivación de PDAs de web3.js; el navegador no tiene ese problema.
+import { Keypair, PublicKey } from "@solana/web3.js";
 import { describe, expect, it } from "vitest";
 
 import { parseConfig } from "@/lib/config";
@@ -28,6 +31,23 @@ describe("parseConfig", () => {
       NEXT_PUBLIC_PROGRAM_ID: PROGRAM_ID,
     });
     expect(config.rpcUrl).toBe("https://rpc.example.com");
+  });
+
+  it("deriva la PDA del marketplace desde su admin, o null si no se define", () => {
+    const admin = Keypair.generate().publicKey;
+    const config = parseConfig({
+      NEXT_PUBLIC_PROGRAM_ID: PROGRAM_ID,
+      NEXT_PUBLIC_MARKETPLACE_ADMIN: admin.toBase58(),
+    });
+    const [expected] = PublicKey.findProgramAddressSync(
+      [Buffer.from("marketplace"), admin.toBuffer()],
+      new PublicKey(PROGRAM_ID),
+    );
+    expect(config.marketplace?.equals(expected)).toBe(true);
+    expect(
+      parseConfig({ NEXT_PUBLIC_PROGRAM_ID: PROGRAM_ID, NEXT_PUBLIC_MARKETPLACE_ADMIN: "" })
+        .marketplace,
+    ).toBeNull();
   });
 
   it("falla con un cluster o program ID inválidos", () => {

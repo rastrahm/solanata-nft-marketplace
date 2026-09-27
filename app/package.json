@@ -16,13 +16,18 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint . && prettier --check .",
     "lint:fix": "eslint . --fix && prettier --write .",
-    "check": "pnpm lint && pnpm typecheck && pnpm test"
+    "check": "pnpm lint && pnpm typecheck && pnpm test",
+    "idl:sync": "cp ../target/idl/marketplace.json src/idl/marketplace.json && cp ../target/types/marketplace.ts src/idl/marketplace.ts",
+    "seed:localnet": "tsx scripts/seed-localnet.ts"
   },
   "dependencies": {
+    "@coral-xyz/anchor": "0.31.1",
+    "@solana/spl-token": "^0.4.13",
     "@solana/wallet-adapter-base": "0.9.28",
     "@solana/wallet-adapter-react": "0.15.40",
     "@solana/wallet-adapter-react-ui": "0.9.40",
     "@solana/web3.js": "1.99.0",
+    "bn.js": "^5.2.1",
     "next": "16.3.6",
     "next-themes": "0.4.6",
     "react": "19.3.0",
@@ -35,6 +40,7 @@
     "@testing-library/jest-dom": "7.0.1",
     "@testing-library/react": "16.3.3",
     "@testing-library/user-event": "14.6.7",
+    "@types/bn.js": "^5.2.0",
     "@types/node": "^22",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
@@ -46,6 +52,7 @@
     "prettier": "^3.5.3",
     "prettier-plugin-tailwindcss": "^0.8.1",
     "tailwindcss": "4.3.3",
+    "tsx": "^4.23.15",
     "typescript": "^5.8.3",
     "vitest": "5.0.2"
   }

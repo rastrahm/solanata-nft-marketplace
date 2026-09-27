@@ -337,7 +337,25 @@ Notas de compatibilidad:
 - Hooks: flujos de estado `idle → signing → confirming → success | error` con el programa mockeado.
 - Manejo explícito: firma rechazada y SOL insuficiente para renta.
 
-**Autorización:** `[ ] Autorizado` — Fecha: ________
+**Decisiones tomadas durante la implementación**
+- **Marketplace por configuración:** nueva variable `NEXT_PUBLIC_MARKETPLACE_ADMIN`; la app deriva la PDA del marketplace. Sin ella, o si el marketplace no está inicializado, las vistas muestran "Marketplace no disponible".
+- **IDL copiado en `app/src/idl/`** (`pnpm app:idl` lo sincroniza tras `anchor build`). Cliente de Anchor sin wallet (`new Program(idl, { connection })`) para leer cuentas y construir instrucciones; firma y envío con `sendTransaction` del wallet-adapter.
+- **Constructores de instrucciones puros** (`lib/instructions.ts`) probados sin red: PDAs, vault según el token program del mint (SPL o Token-2022), `expected_price`, metadata y creadores en `remaining_accounts` en el orden de la metadata.
+- **`useTransaction`:** `idle → signing → confirming → success | error`, confirmación con blockhash + `lastValidBlockHeight` y commitment `confirmed`. Si la confirmación trae `InstructionError { Custom }`, se traduce al mensaje del error del programa. Nuevo código `WALLET_NOT_CONNECTED`. `mapError` también busca en errores envueltos (`error` del wallet-adapter, `cause`).
+- **`useAsyncData` propio, en lugar de React Query:** lectura atada a una clave, con `refetch` y datos conservados durante la recarga. No hace `setState` síncrono en efectos: el estado de carga se deriva de la clave y la versión.
+- **Metadata de Metaplex leída sin SDK** (`lib/metadata.ts`, lector Borsh sobre `DataView` que quita el relleno `\0`). El JSON off-chain se valida con Zod; solo se aceptan imágenes `http(s)` y hay un timeout de 5 s.
+- **Imágenes con `next/image` y `unoptimized`:** vienen de hosts arbitrarios (IPFS, Arweave) y abrir `remotePatterns` a `**` convertiría el optimizador en un proxy abierto. Sin imagen se muestra un placeholder accesible.
+- **NFTs de la wallet:** cuentas de SPL Token y Token-2022 con saldo 1 y decimales 0, filtradas además por `supply == 1` del mint. Las respuestas parseadas del RPC se validan con Zod.
+- **Estimaciones idénticas al programa** (`lib/fees.ts`): comisión y royalties redondeados hacia abajo por creador. Las royalties se muestran como "estimado" porque el programa omite a un creador sin fondos cuya parte no alcanza la renta mínima. Renta al publicar: 0,00371664 SOL (Listing + vault).
+- **UX de compra y cancelación:** tras el éxito, la publicación no se recarga hasta cerrar el aviso, para no perder los enlaces a Solana Explorer y Solscan. El botón se deshabilita mientras la transacción está en curso.
+- `/listing/[mint]` valida `mint` con Zod en el Server Component y llama a `notFound()`. Con `loading.tsx` la respuesta se transmite en streaming: el 404 llega con estado 200 y `noindex`, que es el comportamiento documentado de Next.
+- `error.tsx` y `not-found.tsx` para `/`, `/sell` y `/listing/[mint]` sobre vistas compartidas (`RouteErrorView`, `NotFoundView`); `loading.tsx` en la raíz y en el detalle.
+- **Tests de `lib/` que derivan PDAs corren en entorno `node`** (`// @vitest-environment node`): bajo jsdom los `Uint8Array` son de otro realm y web3.js falla. En el navegador no ocurre.
+- `bn.js` se importa directamente: con ESM nativo, Node no detecta la re-exportación `BN` del CJS de Anchor.
+- `agentRules: false` en `next.config.ts`: Next 16 generaba `AGENTS.md` y `CLAUDE.md` en `next dev`.
+- **Verificación end-to-end:** `pnpm app:seed` siembra un validador local con los mismos constructores del frontend (5 publicaciones, una compra con royalties verificadas de 0,125 SOL y una cancelación). La grilla, el detalle, el NFT vendido y el mint inválido se revisaron en el navegador.
+
+**Autorización:** `[x] Autorizado` — Fecha: 2026-09-27 — **Estado: completada** (85 tests de Vitest; lint, typecheck, `next build` y siembra contra localnet OK)
 
 ---
 
