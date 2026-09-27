@@ -50,6 +50,28 @@ pub struct NftPurchased {
     pub fee: u64,
 }
 
+/// Se emite cuando el admin cambia la comisión con `update_fee`.
+#[event]
+pub struct FeeUpdated {
+    /// Marketplace modificado.
+    pub marketplace: Pubkey,
+    /// Comisión anterior en BPS.
+    pub old_fee_bps: u16,
+    /// Comisión nueva en BPS.
+    pub new_fee_bps: u16,
+}
+
+/// Se emite cuando el admin retira fondos con `withdraw_treasury`.
+#[event]
+pub struct TreasuryWithdrawn {
+    /// Marketplace dueño de la tesorería.
+    pub marketplace: Pubkey,
+    /// Admin que recibió los fondos.
+    pub admin: Pubkey,
+    /// Lamports retirados.
+    pub amount: u64,
+}
+
 /// Se emite cuando el vendedor cancela una publicación con `delist_nft`.
 #[event]
 pub struct ListingCancelled {

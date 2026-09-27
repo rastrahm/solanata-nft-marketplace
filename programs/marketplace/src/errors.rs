@@ -38,4 +38,7 @@ pub enum MarketplaceError {
     /// El precio de la publicación no coincide con el que aceptó el comprador.
     #[msg("El precio de la publicación cambió; revisa el nuevo precio antes de comprar")]
     PriceMismatch,
+    /// El monto de la operación debe ser mayor que cero.
+    #[msg("El monto debe ser mayor que cero")]
+    InvalidAmount,
 }

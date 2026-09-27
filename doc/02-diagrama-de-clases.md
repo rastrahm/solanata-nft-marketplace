@@ -123,12 +123,14 @@ classDiagram
         InsufficientTreasuryFunds
         InvalidMetadata
         PriceMismatch
+        InvalidAmount
     }
 
     class FeeMath {
         <<helper>>
         +calculate_fee(price: u64, fee_bps: u16) Result~u64~
         +seller_amount(price: u64, fee: u64) Result~u64~
+        +withdrawable_lamports(balance: u64, rent_minimum: u64) u64
     }
 
     class Events {
@@ -150,6 +152,7 @@ classDiagram
     MarketplaceProgram ..> MarketplaceError : lanza
     MarketplaceProgram ..> Events : emite
     PurchaseNft ..> FeeMath : calcula comisión
+    WithdrawTreasury ..> FeeMath : saldo retirable
 
     Marketplace "1" --> "1" Treasury : deriva PDA
     Marketplace "1" --> "0..*" Listing : contiene

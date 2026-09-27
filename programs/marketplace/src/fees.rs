@@ -30,6 +30,14 @@ pub fn seller_amount(price: u64, fee: u64) -> Result<u64> {
         .ok_or_else(|| error!(MarketplaceError::MathOverflow))
 }
 
+/// @notice Lamports que se pueden retirar de la tesorería sin dejarla bajo la renta mínima.
+/// @param balance Saldo actual de la tesorería.
+/// @param rent_minimum Renta mínima exenta para una cuenta de 0 bytes.
+/// @return `balance - rent_minimum`, o 0 si el saldo no supera la renta mínima.
+pub fn withdrawable_lamports(balance: u64, rent_minimum: u64) -> u64 {
+    balance.saturating_sub(rent_minimum)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -77,6 +85,19 @@ mod tests {
     fn seller_amount_underflow_is_an_error() {
         let result = seller_amount(10, 11);
         assert_eq!(result, Err(MarketplaceError::MathOverflow.into()));
+    }
+
+    /// Solo es retirable lo que excede la renta mínima.
+    #[test]
+    fn withdrawable_excludes_rent_minimum() {
+        assert_eq!(withdrawable_lamports(1_890_880, 890_880), 1_000_000);
+    }
+
+    /// Con saldo igual o menor a la renta mínima no hay nada retirable (sin underflow).
+    #[test]
+    fn nothing_withdrawable_at_or_below_rent_minimum() {
+        assert_eq!(withdrawable_lamports(890_880, 890_880), 0);
+        assert_eq!(withdrawable_lamports(0, 890_880), 0);
     }
 
     /// Con BPS fuera de rango (u16::MAX > 10 000) la comisión no cabe en u64:

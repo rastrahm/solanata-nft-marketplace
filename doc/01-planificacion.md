@@ -244,7 +244,14 @@ Notas de compatibilidad:
 - ❌ Retirar más de lo disponible → `InsufficientTreasuryFunds`.
 - ❌ `new_fee_bps > MAX_FEE_BPS` → `InvalidFeeBps`.
 
-**Autorización:** `[ ] Autorizado` — Fecha: ________
+**Decisiones tomadas durante la implementación**
+- Las seeds del marketplace se derivan de `marketplace.admin` (no del firmante), así un firmante ajeno llega a `has_one = admin` y recibe `Unauthorized` en lugar de un error de seeds.
+- Nuevo error `InvalidAmount` (código 6010): un retiro de 0 lamports se rechaza.
+- El saldo retirable lo calcula la función pura `withdrawable_lamports(balance, rent_minimum)` (2 tests unitarios) y se valida como `constraint` de Anchor, no con `if` manual. La tesorería nunca baja de `Rent::minimum_balance(0)`.
+- La PDA de tesorería firma la transferencia con `[TREASURY_SEED, marketplace, treasury_bump]`.
+- Nuevos eventos `FeeUpdated { marketplace, old_fee_bps, new_fee_bps }` y `TreasuryWithdrawn { marketplace, admin, amount }`.
+
+**Autorización:** `[x] Autorizado` — Fecha: 2026-09-27 — **Estado: completada** (15 tests de integración + 2 unitarios en Rust)
 
 ---
 
