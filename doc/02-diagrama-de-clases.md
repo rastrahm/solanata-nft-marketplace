@@ -15,7 +15,7 @@ classDiagram
         +initialize_marketplace(ctx, fee_bps: u16) Result
         +list_nft(ctx, price: u64) Result
         +delist_nft(ctx) Result
-        +purchase_nft(ctx) Result
+        +purchase_nft(ctx, expected_price: u64) Result
         +update_fee(ctx, new_fee_bps: u16) Result
         +withdraw_treasury(ctx, amount: u64) Result
     }
@@ -122,6 +122,7 @@ classDiagram
         Unauthorized
         InsufficientTreasuryFunds
         InvalidMetadata
+        PriceMismatch
     }
 
     class FeeMath {
@@ -172,7 +173,7 @@ classDiagram
 | `InitializeMarketplace` | `init`, `payer = admin`, `space = 44`, `seeds = [b"marketplace", admin]`, `bump`; `constraint = fee_bps <= MAX_FEE_BPS` |
 | `ListNft` | `listing`: `init`, `seeds = [b"listing", marketplace, nft_mint]`; `seller_ata`: `associated_token::authority = seller`; `nft_mint`: `constraint = decimals == 0 && supply == 1` |
 | `DelistNft` | `listing`: `has_one = seller`, `has_one = mint`, `close = seller`; `vault`: `associated_token::authority = listing` |
-| `PurchaseNft` | `listing`: `has_one = seller`, `close = seller`; `treasury`: `seeds = [b"treasury", marketplace]`; `constraint = buyer.key() != listing.seller` |
+| `PurchaseNft` | `listing`: `has_one = seller`, `has_one = marketplace`, `close = seller`, `constraint = listing.seller != buyer @ SellerCannotBuy`, `constraint = listing.price == expected_price @ PriceMismatch`; `treasury`: `seeds = [b"treasury", marketplace]`, `bump = marketplace.treasury_bump` |
 | `UpdateFee` / `WithdrawTreasury` | `marketplace`: `has_one = admin`; `admin`: `Signer` |
 
 ---

@@ -221,7 +221,14 @@ Notas de compatibilidad:
 - ❌ `treasury` falsa (otra PDA) → error de seeds.
 - ❌ Precio `u64::MAX` con fee → no hay overflow (u128 intermedio) o `MathOverflow`.
 
-**Autorización:** `[ ] Autorizado` — Fecha: ________
+**Decisiones tomadas durante la implementación**
+- **Firma cambiada a `purchase_nft(expected_price: u64)`** con el nuevo error `PriceMismatch` (código 6009): protege al comprador si el vendedor cancela y re-publica a otro precio entre que el comprador firma y que la transacción se ejecuta (*front-running*).
+- Módulo `fees.rs` (`calculate_fee`, `seller_amount`) con 7 tests unitarios en Rust: intermedio u128, redondeo hacia abajo a favor del vendedor y `MathOverflow` en lugar de pánico.
+- La transferencia a la tesorería se omite cuando la comisión es 0 (ahorra compute units).
+- `buyer_ata` usa `init_if_needed`; el comprador paga su renta si no tenía la ATA.
+- Los NFTs de prueba se crean en una sola transacción: la suite bajó de ~2 min a ~1 min.
+
+**Autorización:** `[x] Autorizado` — Fecha: 2026-09-27 — **Estado: completada** (16 tests de integración + 7 unitarios en Rust)
 
 ---
 

@@ -35,4 +35,7 @@ pub enum MarketplaceError {
     /// La cuenta de metadata no corresponde al mint del NFT.
     #[msg("La metadata no corresponde al NFT")]
     InvalidMetadata,
+    /// El precio de la publicación no coincide con el que aceptó el comprador.
+    #[msg("El precio de la publicación cambió; revisa el nuevo precio antes de comprar")]
+    PriceMismatch,
 }

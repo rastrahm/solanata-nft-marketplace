@@ -31,6 +31,25 @@ pub struct ListingCreated {
     pub price: u64,
 }
 
+/// Se emite cuando un comprador adquiere un NFT con `purchase_nft`.
+#[event]
+pub struct NftPurchased {
+    /// PDA de la publicación cerrada.
+    pub listing: Pubkey,
+    /// Marketplace donde se compró.
+    pub marketplace: Pubkey,
+    /// Comprador que recibió el NFT.
+    pub buyer: Pubkey,
+    /// Vendedor que recibió `price - fee`.
+    pub seller: Pubkey,
+    /// Mint del NFT vendido.
+    pub mint: Pubkey,
+    /// Precio pagado en lamports.
+    pub price: u64,
+    /// Comisión enviada a la tesorería en lamports.
+    pub fee: u64,
+}
+
 /// Se emite cuando el vendedor cancela una publicación con `delist_nft`.
 #[event]
 pub struct ListingCancelled {

@@ -44,6 +44,21 @@ export interface DelistNftAccounts {
   systemProgram: PublicKey;
 }
 
+/** Cuentas que recibe `purchase_nft`. */
+export interface PurchaseNftAccounts {
+  buyer: PublicKey;
+  seller: PublicKey;
+  marketplace: PublicKey;
+  treasury: PublicKey;
+  nftMint: PublicKey;
+  buyerAta: PublicKey;
+  listing: PublicKey;
+  vault: PublicKey;
+  tokenProgram: PublicKey;
+  associatedTokenProgram: PublicKey;
+  systemProgram: PublicKey;
+}
+
 /** NFT publicado por un vendedor nuevo, con las cuentas usadas al publicarlo. */
 export interface ListedNft {
   seller: Keypair;
@@ -128,6 +143,33 @@ export function delistNftAccounts(
     nftMint,
     getAssociatedTokenAddressSync(nftMint, seller),
   );
+}
+
+/**
+ * @description Deriva las cuentas de `purchase_nft` para un comprador y una publicación.
+ * @param {TestMarketplace} market - Marketplace (con su tesorería) donde está la publicación.
+ * @param {ListedNft} listed - Publicación a comprar.
+ * @param {PublicKey} buyer - Comprador que firma y paga.
+ * @returns {PurchaseNftAccounts} Cuentas listas para `accountsStrict`.
+ */
+export function purchaseNftAccounts(
+  market: TestMarketplace,
+  listed: ListedNft,
+  buyer: PublicKey,
+): PurchaseNftAccounts {
+  return {
+    buyer,
+    seller: listed.seller.publicKey,
+    marketplace: market.marketplace,
+    treasury: market.treasury,
+    nftMint: listed.nft.mint,
+    buyerAta: getAssociatedTokenAddressSync(listed.nft.mint, buyer),
+    listing: listed.accounts.listing,
+    vault: listed.accounts.vault,
+    tokenProgram: TOKEN_PROGRAM_ID,
+    associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+    systemProgram: SystemProgram.programId,
+  };
 }
 
 /**
