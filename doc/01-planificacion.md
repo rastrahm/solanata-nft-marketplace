@@ -170,7 +170,13 @@ Notas de compatibilidad:
 - ❌ `seller_ata` que no pertenece al firmante → error de constraint.
 - ❌ Publicar dos veces el mismo NFT → la PDA ya existe.
 
-**Autorización:** `[ ] Autorizado` — Fecha: ________
+**Decisiones tomadas durante la implementación**
+- Dependencia nueva: `anchor-spl =0.31.1` con solo las features `token`, `token_2022` y `associated_token`. Las cuentas usan `token_interface`, así que se aceptan NFTs de SPL Token y de Token-2022.
+- El vault usa `init_if_needed` (feature `init-if-needed` de `anchor-lang`): la dirección de la ATA es predecible y un tercero podría crearla antes para bloquear la publicación (*griefing*). Anchor igualmente valida mint, autoridad y token program de la cuenta existente.
+- Los `handler` de cada instrucción son `pub(crate)` para evitar el choque de nombres en el re-export global que Anchor necesita.
+- Los tests usan un provider con commitment `confirmed` (`tests/helpers/provider.ts`); con `processed` el validador local fallaba de forma intermitente con "Blockhash not found".
+
+**Autorización:** `[x] Autorizado` — Fecha: 2026-09-27 — **Estado: completada** (14 tests de integración + 2 unitarios en Rust)
 
 ---
 

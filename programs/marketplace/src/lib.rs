@@ -33,4 +33,12 @@ pub mod marketplace {
     pub fn initialize_marketplace(ctx: Context<InitializeMarketplace>, fee_bps: u16) -> Result<()> {
         initialize_marketplace::handler(ctx, fee_bps)
     }
+
+    /// @notice Publica un NFT y lo deposita en el vault custodiado por la PDA del Listing.
+    /// @param ctx Ver `ListNft`.
+    /// @param price Precio en lamports (`> 0`).
+    /// @return `Ok(())` o `InvalidPrice` / `InvalidNftMint` / `InvalidTokenAmount`.
+    pub fn list_nft(ctx: Context<ListNft>, price: u64) -> Result<()> {
+        list_nft::handler(ctx, price)
+    }
 }

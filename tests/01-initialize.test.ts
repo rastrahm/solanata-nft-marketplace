@@ -1,9 +1,6 @@
-import * as anchor from "@coral-xyz/anchor";
-import { Program } from "@coral-xyz/anchor";
 import { Keypair, PublicKey, SystemProgram, Transaction } from "@solana/web3.js";
 import { expect } from "chai";
 
-import { Marketplace } from "../target/types/marketplace";
 import { createFundedKeypair } from "./helpers/airdrop";
 import { MARKETPLACE_ACCOUNT_SIZE, MAX_FEE_BPS } from "./helpers/constants";
 import { expectAnchorError, expectTransactionLog } from "./helpers/errors";
@@ -15,12 +12,10 @@ import {
   MARKETPLACE_SEED,
   TREASURY_SEED,
 } from "./helpers/pda";
+import { getTestContext } from "./helpers/provider";
 
 describe("01 · initialize_marketplace", () => {
-  const provider = anchor.AnchorProvider.env();
-  anchor.setProvider(provider);
-  const program = anchor.workspace.marketplace as Program<Marketplace>;
-  const connection = provider.connection;
+  const { provider, program, connection } = getTestContext();
 
   /** Cuentas que recibe `initialize_marketplace`, derivadas para un administrador. */
   interface InitAccounts {
