@@ -377,7 +377,7 @@ Notas de compatibilidad:
 - **Hooks de acción** `useUpdateFee` y `useWithdrawTreasury` en lugar de un `useAdmin` único: siguen el patrón de `useListNft`/`usePurchaseNft` y cada uno tiene su propio estado de transacción y aviso con enlaces al explorer. Tras el éxito se recarga el marketplace o la tesorería.
 - **Nuevo concepto de ayuda `TREASURY`** (tooltip) que explica por qué siempre queda la renta mínima en la tesorería.
 - `PriceField` pasó a usar un `FormField` genérico, compartido con los formularios del admin.
-- **Verificación end-to-end:** `pnpm app:seed` ahora sube la comisión a 300 BPS, retira la mitad de lo retirable (comprobando el descuento exacto) y verifica que el programa rechaza retirar 1 lamport de más (`0x1777`). Deja el keypair del admin en `/tmp/marketplace-seed-admin.json` para probar el panel con una wallet en localnet.
+- **Verificación end-to-end:** `pnpm app:seed` ahora sube la comisión a 300 BPS, retira la mitad de lo retirable (comprobando el descuento exacto) y verifica que el programa rechaza retirar 1 lamport de más (`0x1777`). Deja el keypair del admin en `/tmp/marketplace-seed-localnet/admin.json` para probar el panel con una wallet en localnet.
 
 **Autorización:** `[x] Autorizado` — Fecha: 2026-09-27 — **Estado: completada** (114 tests de Vitest; lint, typecheck, `next build` y siembra contra localnet OK)
 
@@ -395,15 +395,47 @@ Notas de compatibilidad:
 **Criterios de aceptación**
 - Frontend funcional en Devnet; todos los tests (`anchor test` + `vitest`) en verde.
 
-**Autorización:** `[ ] Autorizado` — Fecha: ________
+**Decisiones tomadas durante la implementación**
+- **Se conservó el Program ID `5HwkQykA3irfntrPftwmDc2dcSUjRP3RwYga8Y3Yu6DE`.** Su keypair nunca estuvo versionado (`target/` y `*-keypair.json` están en `.gitignore`) y no existía en devnet, así que generar otro solo obligaba a recompilar sin ganar nada. Hay una copia de respaldo en `~/.config/solana/marketplace-program-keypair.json` (permisos 600). Upgrade authority y admin: la wallet de la CLI `9jbUzfSbDoc7hdzVD5iNDwnu9A9MMtKAkC4dQsbyPGm4`.
+- **Despliegue:** `anchor deploy --provider.cluster devnet` (≈ 1,95 SOL de renta del ProgramData). El IDL se publicó aparte con `anchor idl init` (cuenta `BkZiM6tdsRmmApW92QaTVxhLWVAnPcykaHq1uzpAJ3JJ`) porque `anchor deploy` 0.31 no lo sube.
+- **Un solo script de siembra para ambos clusters** (`app/scripts/seed.ts`, reemplaza a `seed-localnet.ts`): `pnpm app:seed` (localnet) y `pnpm app:seed:devnet`. En devnet no depende del faucet: el admin fondea por transferencia a las cuentas efímeras, los precios son de 0,02–0,1 SOL, reutiliza el marketplace si ya existe y al final devuelve el SOL sobrante. La comisión alterna entre 250 y 300 BPS para que sea re-ejecutable. Las keypairs efímeras quedan en `/tmp/marketplace-seed-<cluster>/`.
+- **Inicialización en devnet con el script de siembra** en lugar de `anchor migrate`: reutiliza los constructores del frontend y verifica cada paso. `migrations/deploy.ts` queda como no-op documentado.
+- **Flujo completo verificado en devnet:** marketplace `CCeyiAgeFnRZL8jQto6JaFJhzPPWasLQ4y8BKEjCwFQf` inicializado con 250 BPS, 5 publicaciones, compra de Comet con royalties exactas (5 000 000 lamports), cancelación de Pulsar, comisión a 300 BPS, retiro de 1 250 000 lamports y retiro excesivo rechazado (`InsufficientTreasuryFunds`). Quedan 3 publicaciones activas de demostración.
+- **`app/.env.example` apunta al marketplace de devnet** (cluster `devnet` y su admin); para localnet se sobrescriben esas dos variables en `.env.local`.
+- **Frontend verificado contra devnet en el navegador:** grilla con las 3 publicaciones, detalle con el desglose según la comisión vigente (300 BPS) y el NFT vendido mostrando "no está publicado".
+- `README.md` con direcciones de devnet, estructura, requisitos, instalación, tests, ejecución local y despliegue/upgrade.
+
+**Autorización:** `[x] Autorizado` — Fecha: 2026-09-27 — **Estado: completada** (99 tests de integración + 26 unitarios de Rust + 114 de Vitest en verde; programa, IDL y marketplace desplegados en devnet)
 
 ---
 
+## Verificación final (cierre del proyecto)
+
+**Fecha:** 2026-09-30 — sobre la rama `finnish`, en un **clon limpio** del repo siguiendo el `README.md` paso a paso.
+
+- **Instalación reproducible:** `pnpm install --frozen-lockfile` en la raíz y en `app/`. El IDL que genera `anchor build` coincide byte a byte con el de `app/src/idl/`.
+- **Hallazgo en el README:** en un clon nuevo, `anchor build` genera un keypair de programa aleatorio y el test `00 · Infraestructura` falla (98/99) por la diferencia con `declare_id!`. El test hace bien su trabajo. Se documentó el paso que faltaba: copiar el keypair respaldado o, para colaboradores, `anchor keys sync`. Con eso: **99/99**.
+- **Suites:** 99 tests de integración, 26 unitarios de Rust, **121 de Vitest**, ESLint, Prettier, `tsc`, rustfmt, `clippy -D warnings` y `next build`, todo en verde.
+- **End-to-end en localnet:** `pnpm app:seed` con royalties exactas, cancelación, comisión, retiro y retiro excesivo rechazado.
+- **UI con transacciones reales firmadas:** se inyectó en el navegador una wallet de prueba que cumple el Wallet Standard (firma Ed25519 con WebCrypto usando las keypairs del seed). Se probó desde la interfaz:
+  - compra de Aurora #1: el comprador pagó 0,5 SOL más la renta de su ATA y recibió el NFT;
+  - publicación de Pulsar #4 a 3 SOL, con validación Zod de 10 decimales y vista previa del reparto;
+  - cancelación de Nebula #2: el NFT volvió al vendedor;
+  - control de acceso de `/admin` ("Sin permisos" y menú sin "Admin" para quien no es admin);
+  - validación de 1 001 BPS y cambio de comisión 300 → 200 → 250 con confirmación;
+  - "Retirar todo": el admin recibió exactamente 46 250 000 lamports menos la comisión de red y la tesorería quedó en la renta mínima;
+  - rechazo de firma con el mensaje "Rechazaste la firma en tu wallet.".
+- **Devnet:** programa, authority y marketplace intactos. Los arreglos del cierre son solo de frontend y no requieren redesplegar.
+
+**Defectos encontrados y corregidos (con test primero):**
+1. **El aviso de éxito desaparecía tras cambiar la comisión.** `refetch` pone `isLoading` en `true` aunque haya datos, y `AdminView` mostraba el spinner, lo que desmontaba el panel y se llevaba los enlaces al explorer. Ahora el spinner solo aparece en la carga inicial.
+2. **`console.error` por errores ya manejados.** Sin `onError`, el `WalletProvider` registraba con `console.error` todo error de la wallet, incluido el rechazo de firma del usuario, y en desarrollo aparecía como "issue" de Next. Nuevo `reportWalletError`: ignora los errores de envío o firma que la UI ya muestra y los rechazos del usuario, y avisa con `console.warn` del resto.
+
 ## Definición de "Hecho" (aplica a todas las fases)
 
-- [ ] Tests escritos antes de la implementación y en verde (`solana-test-validator`).
-- [ ] Cada instrucción, cuenta, función y componente documentado (`///` en Rust, JSDoc en TS).
-- [ ] Sin `unwrap()`, `expect()`, `unsafe` ni `any`.
-- [ ] Constraints explícitos en `#[derive(Accounts)]` (`seeds`, `bump`, `has_one`, `constraint`, `signer`).
-- [ ] Aritmética financiera con `checked_*`.
-- [ ] `cargo clippy -- -D warnings`, `rustfmt`, ESLint y Prettier limpios.
+- [x] Tests escritos antes de la implementación y en verde (`solana-test-validator`).
+- [x] Cada instrucción, cuenta, función y componente documentado (`///` en Rust, JSDoc en TS).
+- [x] Sin `unwrap()`, `expect()`, `unsafe` ni `any`.
+- [x] Constraints explícitos en `#[derive(Accounts)]` (`seeds`, `bump`, `has_one`, `constraint`, `signer`).
+- [x] Aritmética financiera con `checked_*`.
+- [x] `cargo clippy -- -D warnings`, `rustfmt`, ESLint y Prettier limpios.

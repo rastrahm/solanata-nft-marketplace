@@ -5,6 +5,7 @@ import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
 import type { ReactElement, ReactNode } from "react";
 
 import { appConfig } from "@/lib/config";
+import { reportWalletError } from "@/lib/errors";
 
 /** Props de `SolanaProvider`. */
 export interface SolanaProviderProps {
@@ -21,7 +22,7 @@ export interface SolanaProviderProps {
 export function SolanaProvider({ children }: SolanaProviderProps): ReactElement {
   return (
     <ConnectionProvider endpoint={appConfig.rpcUrl} config={{ commitment: "confirmed" }}>
-      <WalletProvider wallets={[]} autoConnect>
+      <WalletProvider wallets={[]} autoConnect onError={reportWalletError}>
         <WalletModalProvider>{children}</WalletModalProvider>
       </WalletProvider>
     </ConnectionProvider>

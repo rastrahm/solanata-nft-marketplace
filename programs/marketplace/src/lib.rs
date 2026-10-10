@@ -4,7 +4,7 @@
 //! comprarlos pagando en SOL con una comisión en BPS para el marketplace, y
 //! cancelar publicaciones recuperando la renta de las cuentas.
 //!
-//! Las instrucciones se incorporan fase a fase según `doc/01-planificacion.md`.
+//! Las instrucciones se incorporan fase a fase según `doc/01-planificacion-ES.md`.
 
 pub mod constants;
 pub mod errors;

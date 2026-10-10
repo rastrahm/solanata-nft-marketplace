@@ -18,7 +18,8 @@
     "lint:fix": "eslint . --fix && prettier --write .",
     "check": "pnpm lint && pnpm typecheck && pnpm test",
     "idl:sync": "cp ../target/idl/marketplace.json src/idl/marketplace.json && cp ../target/types/marketplace.ts src/idl/marketplace.ts",
-    "seed:localnet": "tsx scripts/seed-localnet.ts"
+    "seed:localnet": "tsx scripts/seed.ts",
+    "seed:devnet": "SEED_CLUSTER=devnet tsx scripts/seed.ts"
   },
   "dependencies": {
     "@coral-xyz/anchor": "0.31.1",
