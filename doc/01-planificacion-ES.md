@@ -409,11 +409,33 @@ Notas de compatibilidad:
 
 ---
 
+## Verificación final (cierre del proyecto)
+
+**Fecha:** 2026-09-30 — sobre la rama `finnish`, en un **clon limpio** del repo siguiendo el `README.md` paso a paso.
+
+- **Instalación reproducible:** `pnpm install --frozen-lockfile` en la raíz y en `app/`. El IDL que genera `anchor build` coincide byte a byte con el de `app/src/idl/`.
+- **Hallazgo en el README:** en un clon nuevo, `anchor build` genera un keypair de programa aleatorio y el test `00 · Infraestructura` falla (98/99) por la diferencia con `declare_id!`. El test hace bien su trabajo. Se documentó el paso que faltaba: copiar el keypair respaldado o, para colaboradores, `anchor keys sync`. Con eso: **99/99**.
+- **Suites:** 99 tests de integración, 26 unitarios de Rust, **121 de Vitest**, ESLint, Prettier, `tsc`, rustfmt, `clippy -D warnings` y `next build`, todo en verde.
+- **End-to-end en localnet:** `pnpm app:seed` con royalties exactas, cancelación, comisión, retiro y retiro excesivo rechazado.
+- **UI con transacciones reales firmadas:** se inyectó en el navegador una wallet de prueba que cumple el Wallet Standard (firma Ed25519 con WebCrypto usando las keypairs del seed). Se probó desde la interfaz:
+  - compra de Aurora #1: el comprador pagó 0,5 SOL más la renta de su ATA y recibió el NFT;
+  - publicación de Pulsar #4 a 3 SOL, con validación Zod de 10 decimales y vista previa del reparto;
+  - cancelación de Nebula #2: el NFT volvió al vendedor;
+  - control de acceso de `/admin` ("Sin permisos" y menú sin "Admin" para quien no es admin);
+  - validación de 1 001 BPS y cambio de comisión 300 → 200 → 250 con confirmación;
+  - "Retirar todo": el admin recibió exactamente 46 250 000 lamports menos la comisión de red y la tesorería quedó en la renta mínima;
+  - rechazo de firma con el mensaje "Rechazaste la firma en tu wallet.".
+- **Devnet:** programa, authority y marketplace intactos. Los arreglos del cierre son solo de frontend y no requieren redesplegar.
+
+**Defectos encontrados y corregidos (con test primero):**
+1. **El aviso de éxito desaparecía tras cambiar la comisión.** `refetch` pone `isLoading` en `true` aunque haya datos, y `AdminView` mostraba el spinner, lo que desmontaba el panel y se llevaba los enlaces al explorer. Ahora el spinner solo aparece en la carga inicial.
+2. **`console.error` por errores ya manejados.** Sin `onError`, el `WalletProvider` registraba con `console.error` todo error de la wallet, incluido el rechazo de firma del usuario, y en desarrollo aparecía como "issue" de Next. Nuevo `reportWalletError`: ignora los errores de envío o firma que la UI ya muestra y los rechazos del usuario, y avisa con `console.warn` del resto.
+
 ## Definición de "Hecho" (aplica a todas las fases)
 
-- [ ] Tests escritos antes de la implementación y en verde (`solana-test-validator`).
-- [ ] Cada instrucción, cuenta, función y componente documentado (`///` en Rust, JSDoc en TS).
-- [ ] Sin `unwrap()`, `expect()`, `unsafe` ni `any`.
-- [ ] Constraints explícitos en `#[derive(Accounts)]` (`seeds`, `bump`, `has_one`, `constraint`, `signer`).
-- [ ] Aritmética financiera con `checked_*`.
-- [ ] `cargo clippy -- -D warnings`, `rustfmt`, ESLint y Prettier limpios.
+- [x] Tests escritos antes de la implementación y en verde (`solana-test-validator`).
+- [x] Cada instrucción, cuenta, función y componente documentado (`///` en Rust, JSDoc en TS).
+- [x] Sin `unwrap()`, `expect()`, `unsafe` ni `any`.
+- [x] Constraints explícitos en `#[derive(Accounts)]` (`seeds`, `bump`, `has_one`, `constraint`, `signer`).
+- [x] Aritmética financiera con `checked_*`.
+- [x] `cargo clippy -- -D warnings`, `rustfmt`, ESLint y Prettier limpios.

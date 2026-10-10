@@ -21,7 +21,9 @@ export function AdminView(): ReactElement {
   const marketplace = useMarketplace();
 
   if (!publicKey) return <ConnectWalletNotice action="administrar el marketplace" />;
-  if (marketplace.isLoading) return <Spinner label="Cargando marketplace" className="size-6" />;
+  if (marketplace.isLoading && !marketplace.data) {
+    return <Spinner label="Cargando marketplace" className="size-6" />;
+  }
   if (!marketplace.data) return <MarketplaceNotConfigured />;
   if (publicKey.toBase58() !== marketplace.data.admin) {
     return (

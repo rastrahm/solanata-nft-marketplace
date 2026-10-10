@@ -1,6 +1,33 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { mapError } from "@/lib/errors";
+import { mapError, reportWalletError } from "@/lib/errors";
+
+describe("reportWalletError", () => {
+  const named = (name: string, message: string): Error =>
+    Object.assign(new Error(message), { name });
+
+  afterEach(() => vi.restoreAllMocks());
+
+  it.each([
+    ["WalletSendTransactionError", "Unexpected error"],
+    ["WalletSignTransactionError", "Unexpected error"],
+    ["WalletNotConnectedError", ""],
+    ["WalletConnectionError", "User rejected the request."],
+  ])("no registra %s: la UI ya lo muestra o lo decidió el usuario", (name, message) => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    reportWalletError(named(name, message));
+    expect(warn).not.toHaveBeenCalled();
+    expect(error).not.toHaveBeenCalled();
+  });
+
+  it("avisa con console.warn de los errores inesperados de la wallet", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const failure = named("WalletConnectionError", "Wallet extension crashed");
+    reportWalletError(failure);
+    expect(warn).toHaveBeenCalledWith("[wallet]", failure);
+  });
+});
 
 describe("mapError", () => {
   it("traduce el rechazo de firma de la wallet", () => {

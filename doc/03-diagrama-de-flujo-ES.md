@@ -1,6 +1,6 @@
 # 03 — Diagrama de Flujo (flujo de datos y de transacciones)
 
-Este documento muestra **cómo viajan los datos y los activos** (SOL y NFT) entre los actores del sistema: usuario, frontend, wallet, RPC, programa Anchor y cuentas on-chain. La lógica de decisiones paso a paso está en [04-flujograma.md](./04-flujograma.md).
+Este documento muestra **cómo viajan los datos y los activos** (SOL y NFT) entre los actores del sistema: usuario, frontend, wallet, RPC, programa Anchor y cuentas on-chain. La lógica de decisiones paso a paso está en [04-flujograma-ES.md](./04-flujograma-ES.md).
 
 ---
 

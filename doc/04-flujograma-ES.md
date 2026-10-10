@@ -1,6 +1,6 @@
 # 04 — Flujograma (lógica de decisiones)
 
-Mientras el [diagrama de flujo](./03-diagrama-de-flujo.md) muestra cómo se mueven los datos y activos entre actores, este flujograma describe **la lógica paso a paso con sus decisiones**: el recorrido del usuario en la interfaz y las validaciones que ejecuta cada instrucción on-chain.
+Mientras el [diagrama de flujo](./03-diagrama-de-flujo-ES.md) muestra cómo se mueven los datos y activos entre actores, este flujograma describe **la lógica paso a paso con sus decisiones**: el recorrido del usuario en la interfaz y las validaciones que ejecuta cada instrucción on-chain.
 
 **Simbología:** `([ ])` inicio/fin · `[ ]` proceso · `{ }` decisión · `[/ /]` entrada/salida.
 

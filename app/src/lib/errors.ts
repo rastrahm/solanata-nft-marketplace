@@ -22,6 +22,24 @@ const NETWORK = /failed to fetch|network|timeout|timed out|blockhash not found|5
 const ANCHOR_NUMBER = /Error Number: (\d+)/;
 const CUSTOM_HEX = /custom program error: 0x([0-9a-f]+)/i;
 
+/** Errores de envío/firma que `useTransaction` ya captura y muestra al usuario. */
+const HANDLED_WALLET_ERRORS = new Set([
+  "WalletSendTransactionError",
+  "WalletSignTransactionError",
+  "WalletNotConnectedError",
+]);
+
+/**
+ * @description `onError` del `WalletProvider`. Sin él, wallet-adapter hace `console.error` de todo,
+ * incluidos los rechazos del usuario y los errores que la UI ya muestra con su propio aviso.
+ * @param {Error} error - Error emitido por el adapter.
+ * @returns {void}
+ */
+export function reportWalletError(error: Error): void {
+  if (HANDLED_WALLET_ERRORS.has(error.name) || WALLET_REJECTED.test(error.message)) return;
+  console.warn("[wallet]", error);
+}
+
 /**
  * @description Reúne en un solo texto el mensaje y los logs de un error de wallet, RPC o Anchor,
  * incluidos los errores envueltos (`error` del wallet-adapter, `cause` estándar).

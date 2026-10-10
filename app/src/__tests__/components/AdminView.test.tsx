@@ -40,6 +40,7 @@ vi.mock("@/components/layout/WalletButton", () => ({
 beforeEach(() => {
   wallet.publicKey = null;
   marketplace.data = { address: ADDR.marketplace, admin: ADDR.seller, feeBps: 250 };
+  marketplace.isLoading = false;
 });
 
 describe("AdminView", () => {
@@ -64,6 +65,22 @@ describe("AdminView", () => {
     expect(screen.getByText("2.99910912 SOL")).toBeInTheDocument();
     expect(screen.getByLabelText(/nueva comisión/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/monto a retirar/i)).toBeInTheDocument();
+  });
+
+  it("muestra un spinner solo en la carga inicial", () => {
+    wallet.publicKey = new PublicKey(ADDR.seller);
+    marketplace.data = null;
+    marketplace.isLoading = true;
+    render(<AdminView />);
+    expect(screen.getByText(/cargando marketplace/i)).toBeInTheDocument();
+  });
+
+  it("mantiene el panel (y el aviso de la transacción) mientras recarga tras cambiar la comisión", () => {
+    wallet.publicKey = new PublicKey(ADDR.seller);
+    marketplace.isLoading = true;
+    render(<AdminView />);
+    expect(screen.getByLabelText(/nueva comisión/i)).toBeInTheDocument();
+    expect(screen.queryByText(/cargando marketplace/i)).not.toBeInTheDocument();
   });
 
   it("avisa si el marketplace no está configurado", () => {
